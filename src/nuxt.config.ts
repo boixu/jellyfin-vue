@@ -72,6 +72,7 @@ const config: NuxtConfig = {
    */
   css: [
     '~/assets/global.scss',
+    '~/assets/transitions.scss',
     '@mdi/font/css/materialdesignicons.css',
     'vuetify/src/styles/styles.sass'
   ],
