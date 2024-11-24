@@ -1,13 +1,12 @@
 <template>
-  <div class="volume-slider d-flex align-center justify-center">
-    <v-btn
-      class="active-button"
+  <div class="d-flex align-center justify-center volume-slider">
+    <VBtn
       icon
       size="small"
       @click="playbackManager.toggleMute">
-      <v-icon :icon="icon" />
-    </v-btn>
-    <v-slider
+      <VIcon :icon="icon" />
+    </VBtn>
+    <VSlider
       v-model="sliderValue"
       class="volume-slider"
       hide-details
@@ -16,19 +15,17 @@
       <template #thumb-label>
         {{ Math.round(sliderValue) }}
       </template>
-    </v-slider>
+    </VSlider>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import IMdiVolumeMute from 'virtual:icons/mdi/volume-mute';
-import IMdiVolumeMedium from 'virtual:icons/mdi/volume-medium';
 import IMdiVolumeHigh from 'virtual:icons/mdi/volume-high';
 import IMdiVolumeLow from 'virtual:icons/mdi/volume-low';
-import { playbackManagerStore } from '@/store';
-
-const playbackManager = playbackManagerStore();
+import IMdiVolumeMedium from 'virtual:icons/mdi/volume-medium';
+import IMdiVolumeMute from 'virtual:icons/mdi/volume-mute';
+import { computed } from 'vue';
+import { playbackManager } from '@/store/playback-manager';
 
 const sliderValue = computed({
   get() {
@@ -45,13 +42,13 @@ const icon = computed(() => {
   } else if (playbackManager.currentVolume >= 80) {
     return IMdiVolumeHigh;
   } else if (
-    playbackManager.currentVolume < 80 &&
-    playbackManager.currentVolume >= 25
+    playbackManager.currentVolume < 80
+    && playbackManager.currentVolume >= 25
   ) {
     return IMdiVolumeMedium;
   } else if (
-    playbackManager.currentVolume < 25 &&
-    playbackManager.currentVolume >= 1
+    playbackManager.currentVolume < 25
+    && playbackManager.currentVolume >= 1
   ) {
     return IMdiVolumeLow;
   } else {
@@ -60,7 +57,7 @@ const icon = computed(() => {
 });
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .volume-slider {
   width: 10em;
 }

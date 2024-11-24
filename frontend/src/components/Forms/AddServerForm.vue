@@ -1,28 +1,33 @@
 <template>
   <div>
-    <v-form
+    <VForm
       v-model="valid"
       :disabled="loading"
       @submit.prevent="connectToServer">
-      <v-text-field
+      <VTextField
         v-model="serverUrl"
         variant="outlined"
         autofocus
-        :label="$t('login.serverAddress')"
+        :label="$t('serverAddress')"
         type="url"
         :rules="rules" />
-      <v-row align="center" no-gutters>
-        <v-col v-if="previousServerLength" class="mr-2">
-          <v-btn
+      <VRow
+        align="center"
+        no-gutters>
+        <VCol
+          v-if="previousServerLength"
+          class="mr-2">
+          <VBtn
+            v-if="jsonConfig.allowServerSelection"
             block
             size="large"
             variant="elevated"
-            @click="router.push('/server/select')">
-            {{ $t('login.changeServer') }}
-          </v-btn>
-        </v-col>
-        <v-col class="mr-2">
-          <v-btn
+            @click.prevent="router.push('/server/select')">
+            {{ $t('changeServer') }}
+          </VBtn>
+        </VCol>
+        <VCol class="mr-2">
+          <VBtn
             :disabled="!valid"
             :loading="loading"
             block
@@ -30,59 +35,43 @@
             color="primary"
             variant="elevated"
             type="submit">
-            {{ $t('login.connect') }}
-          </v-btn>
-        </v-col>
-      </v-row>
-    </v-form>
+            {{ $t('connect') }}
+          </VBtn>
+        </VCol>
+      </VRow>
+    </VForm>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, unref } from 'vue';
-import { useRouter } from 'vue-router';
+import { shallowRef, unref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRemote, useSnackbar } from '@/composables';
+import { useRouter } from 'vue-router';
+import { remote } from '@/plugins/remote';
+import { jsonConfig } from '@/utils/external-config';
 
-const remote = useRemote();
 const router = useRouter();
 const i18n = useI18n();
-const valid = ref(false);
+const valid = shallowRef(false);
 const previousServerLength = unref(remote.auth.servers.length);
-const serverUrl = ref('');
-const loading = ref(false);
+const serverUrl = shallowRef('');
+const loading = shallowRef(false);
 
 const rules = [
-  (v: string): boolean | string => !!v.trim() || i18n.t('validation.required')
+  (v: string): boolean | string => !!v.trim() || i18n.t('required')
 ];
 
 /**
- * Attempts a connection to the given server
+ * Attempts a connection to the given server.
+ * If the connection is successful, the user will be redirected to the login page
+ * at the middleware level
  */
 async function connectToServer(): Promise<void> {
   loading.value = true;
-  serverUrl.value = serverUrl.value.trim();
 
   try {
-    let candidates = await remote.sdk.discovery.getRecommendedServerCandidates(
-      serverUrl.value
-    );
-
-    const best = remote.sdk.discovery.findBestServer(candidates);
-
-    if (!best) {
-      useSnackbar(i18n.t('login.serverNotFound'), 'error');
-
-      return;
-    }
-
-    await remote.auth.connectServer(best.address);
-
-    if (previousServerLength === 0) {
-      router.push('/server/login');
-    } else {
-      router.push('/server/select');
-    }
+    await remote.auth.connectServer(serverUrl.value);
+    await router.push('/server/login');
   } finally {
     loading.value = false;
   }

@@ -1,30 +1,36 @@
 <template>
-  <v-text-field :model-value="value" :label="label" readonly variant="outlined">
-    <v-menu
+  <VTextField
+    :model-value="value"
+    :label="label"
+    readonly
+    variant="outlined">
+    <VMenu
       v-model="menu"
       :close-on-content-click="false"
       transition="scale-transition">
       <!-- TODO: Wait for Vuetify 3 implementation (https://github.com/vuetifyjs/vuetify/issues/13480) -->
       <!-- <v-date-picker :value="value" @change="handleChange" /> -->
-    </v-menu>
-  </v-text-field>
+    </VMenu>
+  </VTextField>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue';
+import { shallowRef } from 'vue';
 
-defineProps<{
+const { value, label } = defineProps<{
   value: string;
   label: string;
 }>();
 
 defineEmits<{
-  (e: 'update:date', value: string): void;
+  'update:date': [value: string];
 }>();
 
-const menu = ref(false);
+const menu = shallowRef(false);
 
-// const handleChange = (value: string): void => {
-//   menu.value = false;
-//   emit('update:date', value);
-// };
+/*
+ * Const handleChange = (value: string): void => {
+ *   menu.value = false;
+ *   emit('update:date', value);
+ * };
+ */
 </script>

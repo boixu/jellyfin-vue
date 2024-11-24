@@ -1,20 +1,17 @@
 <template>
-  <v-list-item
-    v-if="commit"
-    :title="'#' + commit.slice(0, 7)"
+  <VListItem
+    v-if="commit_hash"
+    :title="'#' + commit_hash.slice(0, 7)"
     :prepend-icon="IMdiGithub"
-    :href="url"
+    :href="link"
     target="_blank"
     rel="noopener noreferrer" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import IMdiGithub from 'virtual:icons/mdi/github';
+import { commit_hash } from 'virtual:commit';
+import { sanitizeHtml } from '@/utils/html';
 
-const commit = __COMMIT_HASH__;
-
-const url = computed(() => {
-  return `https://github.com/jellyfin/jellyfin-vue/commit/${commit}`;
-});
+const link = commit_hash ? sanitizeHtml(`https://github.com/jellyfin/jellyfin-vue/commit/${commit_hash}`) : undefined;
 </script>

@@ -1,9 +1,9 @@
 <template>
-  <v-text-field
+  <VTextField
     v-model="searchQuery"
     class="search-input"
     :prepend-inner-icon="IMdiMagnify"
-    :placeholder="$t('search.name')"
+    :placeholder="$t('search')"
     density="compact"
     hide-details
     single-line
@@ -11,20 +11,20 @@
 </template>
 
 <script setup lang="ts">
+import IMdiMagnify from 'virtual:icons/mdi/magnify';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import IMdiMagnify from 'virtual:icons/mdi/magnify';
 
 const route = useRoute();
 const router = useRouter();
 
 const searchQuery = computed({
   get(): string {
-    return route.query.q?.toString() || '';
+    return route.query.q?.toString() ?? '';
   },
-  set(value: string) {
-    router.replace({
-      ...router.currentRoute,
+  set(value) {
+    void router.replace({
+      ...router.currentRoute.value,
       query: {
         q: value.trim() || undefined
       }
@@ -35,11 +35,11 @@ const searchQuery = computed({
 /**
  * Handle page redirects depending on the focus state of the component
  */
-function onFocus(focused: boolean): void {
-  if (!searchQuery.value && !focused && window.history.length > 0) {
+async function onFocus(focused: boolean): Promise<void> {
+  if (!searchQuery.value && !focused && window.history.length) {
     router.back();
   } else if (focused && !searchQuery.value) {
-    router.push({ path: '/search' });
+    await router.push({ path: '/search' });
   }
 }
 </script>

@@ -1,74 +1,73 @@
 <template>
-  <v-app-bar
+  <VAppBar
     class="app-bar-safe-zone"
     :color="transparentAppBar ? 'transparent' : undefined"
     density="compact"
     flat>
-    <loading-indicator />
-    <v-app-bar-nav-icon
+    <LoadingIndicator />
+    <VAppBarNavIcon
       v-if="$vuetify.display.mobile"
       @click="navigationDrawer = !navigationDrawer" />
-    <app-bar-button-layout @click="$router.back()">
+    <AppBarButtonLayout @click="$router.back()">
       <template #icon>
-        <v-icon>
-          <i-mdi-arrow-left />
-        </v-icon>
+        <VIcon>
+          <IMdiArrowLeft />
+        </VIcon>
       </template>
-    </app-bar-button-layout>
-    <v-spacer />
-    <search-field />
-    <v-spacer />
-    <app-bar-button-layout v-if="!network.isOnline" color="red">
+    </AppBarButtonLayout>
+    <VSpacer />
+    <SearchField />
+    <VSpacer />
+    <AppBarButtonLayout
+      v-hide="remote.socket.isConnected.value && isConnectedToServer"
+      :color="isConnectedToServer ? 'yellow' : 'red'">
       <template #icon>
-        <v-icon>
-          <i-mdi-network-off-outline />
-        </v-icon>
+        <VIcon>
+          <IMdiNetworkOffOutline />
+        </VIcon>
       </template>
       <template #tooltip>
-        <span>{{ $t('noNetworkConnection') }}</span>
+        <span>{{ !remote.socket.isConnected.value ? $t('noWebSocketConnection') : $t('noServerConnection') }}</span>
       </template>
-    </app-bar-button-layout>
-    <task-manager-button />
-    <app-bar-button-layout @click="switchColorTheme">
+    </AppBarButtonLayout>
+    <TaskManagerButton />
+    <AppBarButtonLayout @click="switchColorTheme">
       <template #icon>
-        <v-icon>
-          <i-mdi-brightness-auto v-if="clientSettings.darkMode === 'auto'" />
-          <i-mdi-weather-sunny v-else-if="clientSettings.darkMode" />
-          <i-mdi-weather-night v-else />
-        </v-icon>
+        <VIcon>
+          <IMdiBrightnessAuto v-if="clientSettings.darkMode === 'auto'" />
+          <IMdiWeatherSunny v-else-if="clientSettings.darkMode" />
+          <IMdiWeatherNight v-else />
+        </VIcon>
       </template>
       <template #tooltip>
         <span v-if="clientSettings.darkMode === 'auto'">
-          {{ $t('tooltips.switchToDarkMode') }}
+          {{ $t('switchToDarkMode') }}
         </span>
         <span v-else-if="clientSettings.darkMode">
-          {{ $t('tooltips.switchToLightMode') }}
+          {{ $t('switchToLightMode') }}
         </span>
         <span v-else>
-          {{ $t('tooltips.switchToAuto') }}
+          {{ $t('followSystemTheme') }}
         </span>
       </template>
-    </app-bar-button-layout>
+    </AppBarButtonLayout>
     <!-- Uncomment when some of the remote play features are fully implemented -->
     <!-- <cast-button /> -->
-    <user-button />
-    <locale-switcher elevated />
-  </v-app-bar>
+    <UserButton />
+    <LocaleSwitcher elevated />
+  </VAppBar>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, Ref } from 'vue';
-import { useRoute } from 'vue-router';
-import { useNetwork } from '@vueuse/core';
-import { clientSettingsStore, windowScroll } from '@/store';
+import { computed, inject, type Ref } from 'vue';
+import { windowScroll, isConnectedToServer, transparencyEffects } from '@/store';
+import { clientSettings } from '@/store/client-settings';
+import { remote } from '@/plugins/remote';
+import { JView_isRouting } from '@/store/keys';
 
-const clientSettings = clientSettingsStore();
-const route = useRoute();
-const network = useNetwork();
 const { y } = windowScroll;
-const transparentAppBar = computed<boolean>(() => {
-  return (route.meta.transparentLayout || false) && y.value < 10;
-});
+const isRouting = inject(JView_isRouting);
+const transparentAppBar = computed(previous => isRouting?.value ? previous : transparencyEffects.value && y.value < 10);
 
 /**
  * Cycle between the different color schemas
@@ -86,12 +85,8 @@ function switchColorTheme(): void {
 const navigationDrawer = inject<Ref<boolean>>('NavigationDrawer');
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .app-bar-safe-zone {
   height: calc(48px + env(safe-area-inset-top)) !important;
-}
-
-.v-toolbar.ml-n3 {
-  max-width: initial !important;
 }
 </style>

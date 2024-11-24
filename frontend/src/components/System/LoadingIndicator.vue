@@ -1,5 +1,5 @@
 <template>
-  <v-progress-linear
+  <VProgressLinear
     :active="isLoading"
     indeterminate
     absolute
@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { useLoading } from '@/composables';
+import { useLoading } from '@/composables/use-loading';
 
 const { isLoading } = useLoading();
 </script>

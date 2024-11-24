@@ -1,101 +1,121 @@
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row justify="center">
-      <v-col
-        v-if="isEmpty(currentUser) && !loginAsOther && publicUsers.length > 0"
+  <VContainer
+    class="fill-height"
+    fluid>
+    <VRow justify="center">
+      <VCol
+        v-if="!currentUser && !loginAsOther && publicUsers.length"
         sm="10"
         md="7"
         lg="5">
-        <h1 class="text-h4 mb-6 text-center">{{ $t('login.selectUser') }}</h1>
-        <v-row align="center" justify="center">
-          <v-col
+        <h1 class="text-h4 mb-6 text-center">
+          {{ $t('selectUser') }}
+        </h1>
+        <VRow
+          align="center"
+          justify="center">
+          <VCol
             v-for="publicUser in publicUsers"
             :key="publicUser.Id"
             cols="auto">
-            <user-card :user="publicUser" @connect="setCurrentUser" />
-          </v-col>
-        </v-row>
-        <v-row align="center" justify="center" dense class="mt-6">
-          <v-col cols="11" sm="6" class="d-flex justify-center">
-            <v-btn
+            <UserCard
+              :user="publicUser"
+              @connect="setCurrentUser" />
+          </VCol>
+        </VRow>
+        <VRow
+          align="center"
+          justify="center"
+          dense
+          class="mt-6">
+          <VCol
+            cols="11"
+            sm="6"
+            class="d-flex justify-center">
+            <VBtn
               block
               size="large"
               variant="elevated"
               @click="loginAsOther = true">
-              {{ $t('login.manualLogin') }}
-            </v-btn>
-          </v-col>
-          <v-col cols="11" sm="6" class="d-flex justify-center">
-            <v-btn block to="/server/select" size="large" variant="elevated">
-              {{ $t('login.changeServer') }}
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-col>
-      <v-col
+              {{ $t('manualLogin') }}
+            </VBtn>
+          </VCol>
+          <VCol
+            cols="11"
+            sm="6"
+            class="d-flex justify-center">
+            <VBtn
+              v-if="jsonConfig.allowServerSelection"
+              block
+              to="/server/select"
+              size="large"
+              variant="elevated">
+              {{ $t('changeServer') }}
+            </VBtn>
+          </VCol>
+        </VRow>
+      </VCol>
+      <VCol
         v-else-if="
-          !isEmpty(currentUser) ||
-          loginAsOther ||
-          (publicUsers.length === 0 && $remote.auth.currentServer?.ServerName)
+          currentUser ||
+            loginAsOther ||
+            (publicUsers.length === 0 && $remote.auth.currentServer?.ServerName)
         "
         sm="6"
         md="6"
         lg="5">
-        <h1 v-if="!isEmpty(currentUser)" class="text-h4 mb-3 text-center">
-          {{ $t('login.loginAs', { name: currentUser.Name }) }}
+        <h1
+          v-if="currentUser"
+          class="text-h4 mb-3 text-center">
+          {{ $t('loginAs', { name: currentUser.Name }) }}
         </h1>
-        <h1 v-else class="text-h4 text-center">
-          {{ $t('login.login') }}
+        <h1
+          v-else
+          class="text-h4 text-center">
+          {{ $t('login') }}
         </h1>
         <h5 class="text-center mb-3 text--disabled">
           {{ $remote.auth.currentServer?.ServerName }}
         </h5>
-        <login-form :user="currentUser" @change="resetCurrentUser" />
-        <p class="text-p mt-6 text-center">{{ disclaimer }}</p>
-      </v-col>
-    </v-row>
-  </v-container>
+        <LoginForm
+          :user="currentUser"
+          :disabled="!isConnectedToServer"
+          @change="resetCurrentUser" />
+        <p
+          v-if="disclaimer"
+          class="mt-6 text-center text-p">
+          <JSafeHtml :html="disclaimer" />
+        </p>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>
 
 <route lang="yaml">
 meta:
-  layout: server
+  layout:
+    name: server
 </route>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { isEmpty } from 'lodash-es';
-import { UserDto } from '@jellyfin/sdk/lib/generated-client';
-import { getBrandingApi } from '@jellyfin/sdk/lib/utils/api/branding-api';
-import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api';
-import { getSystemApi } from '@jellyfin/sdk/lib/utils/api/system-api';
-import { useRoute, useRouter } from 'vue-router';
+import type { UserDto } from '@jellyfin/sdk/lib/generated-client';
+import { ref, shallowRef, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRemote } from '@/composables';
+import { remote } from '@/plugins/remote';
+import { jsonConfig } from '@/utils/external-config';
+import { usePageTitle } from '@/composables/page-title';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { isConnectedToServer } from '@/store';
 
 const { t } = useI18n();
-const route = useRoute();
-const router = useRouter();
-const remote = useRemote();
-const api = remote.sdk.oneTimeSetup(
-  remote.auth.currentServer?.PublicAddress || ''
-);
 
-route.meta.title = t('login.login');
+usePageTitle(() => t('login'));
 
-try {
-  await getSystemApi(api).getPublicSystemInfo();
-} catch {
-  router.replace('/server/select');
-}
+const disclaimer = computed(() => remote.auth.currentServer?.BrandingOptions.LoginDisclaimer);
+const publicUsers = computed(() => remote.auth.currentServer?.PublicUsers ?? []);
 
-const brandingData = (await getBrandingApi(api).getBrandingOptions()).data;
-const publicUsers = (await getUserApi(api).getPublicUsers({})).data;
-
-const disclaimer = brandingData.LoginDisclaimer;
-
-const loginAsOther = ref(false);
-const currentUser = ref<UserDto>({});
+const loginAsOther = shallowRef(false);
+const currentUser = ref<UserDto>();
 
 /**
  * Sets the current user for public user login
@@ -104,7 +124,6 @@ async function setCurrentUser(user: UserDto): Promise<void> {
   if (!user.HasPassword && user.Name) {
     // If the user doesn't have a password, avoid showing the password form
     await remote.auth.loginUser(user.Name, '');
-    router.replace('/');
   } else {
     currentUser.value = user;
   }
@@ -114,7 +133,13 @@ async function setCurrentUser(user: UserDto): Promise<void> {
  * Resets the currently selected user
  */
 function resetCurrentUser(): void {
-  currentUser.value = {};
+  currentUser.value = undefined;
   loginAsOther.value = false;
 }
+
+watch(isConnectedToServer, () => {
+  if (!isConnectedToServer.value) {
+    useSnackbar(t('noServerConnection'), 'error');
+  }
+});
 </script>

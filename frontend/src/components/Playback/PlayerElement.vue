@@ -1,54 +1,77 @@
 <template>
   <template v-if="mediaElementType">
-    <Teleport :to="teleportTarget" :disabled="!teleportTarget">
-      <component
-        :is="mediaElementType"
-        v-show="mediaElementType === 'video' && teleportTarget"
-        ref="mediaElementRef"
-        :poster="posterUrl"
-        autoplay
-        crossorigin="anonymous"
-        playsinline
-        :loop="playbackManager.isRepeatingOnce"
-        :class="{ stretched: playerElement.isStretched }"
-        @loadeddata="onLoadedData">
-        <track
-          v-for="sub in playbackManager.currentItemVttParsedSubtitleTracks"
-          :key="`${playbackManager.currentSourceUrl}-${sub.srcIndex}`"
-          kind="subtitles"
-          :label="sub.label"
-          :srclang="sub.srcLang"
-          :src="sub.src" />
-      </component>
+    <Teleport
+      :to="videoContainerRef"
+      :disabled="!videoContainerRef"
+      defer>
+      <div class="uno-my-auto">
+        <Component
+          :is="mediaElementType"
+          v-show="mediaElementType === 'video' && videoContainerRef"
+          ref="mediaElementRef"
+          :poster="String(posterUrl)"
+          autoplay
+          crossorigin
+          playsinline
+          :loop="playbackManager.isRepeatingOnce"
+          :class="{ 'uno-object-fill': playerElement.isStretched.value, 'uno-max-h-100vh': true}"
+          @loadeddata="onLoadedData">
+          <track
+            v-for="sub in playbackManager.currentItemVttParsedSubtitleTracks"
+            :key="`${playbackManager.currentSourceUrl}-${sub.srcIndex}`"
+            kind="subtitles"
+            :label="sub.label"
+            :srclang="sub.srcLang"
+            :src="sub.src">
+        </Component>
+        <SubtitleTrack
+          v-if="subtitleSettings.state.enabled && playerElement.currentExternalSubtitleTrack?.parsed !== undefined" />
+      </div>
     </Teleport>
   </template>
 </template>
 
 <script setup lang="ts">
-import { computed, watch, nextTick } from 'vue';
-import { isNil } from 'lodash-es';
+import Hls, { ErrorTypes, Events, type ErrorData } from 'hls.js';
+import HlsWorkerUrl from 'hls.js/dist/hls.worker.js?url';
+import { computed, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import Hls, { ErrorData, ErrorTypes, Events } from 'hls.js';
+import { useSnackbar } from '@/composables/use-snackbar';
 import {
-  playbackManagerStore,
-  playerElementStore,
-  mediaElementRef
+  mediaElementRef,
+  mediaWebAudio
 } from '@/store';
+import { playbackManager } from '@/store/playback-manager';
+import { playerElement, videoContainerRef } from '@/store/player-element';
 import { getImageInfo } from '@/utils/images';
-import { useSnackbar } from '@/composables';
-/**
- * Playback won't work in development until https://github.com/vuejs/core/pull/7593 is fixed
- */
+import { isNil } from '@/utils/validation';
+import { subtitleSettings } from '@/store/client-settings/subtitle-settings';
 
-const playbackManager = playbackManagerStore();
-const playerElement = playerElementStore();
 const { t } = useI18n();
-
+let busyWebAudio = false;
 const hls = Hls.isSupported()
   ? new Hls({
-      testBandwidth: false
-    })
+    testBandwidth: false,
+    workerPath: HlsWorkerUrl
+  })
   : undefined;
+
+const mediaElementType = computed<'audio' | 'video' | undefined>(() => {
+  if (playbackManager.isAudio) {
+    return 'audio';
+  } else if (playbackManager.isVideo) {
+    return 'video';
+  }
+});
+
+const posterUrl = computed(() =>
+  !isNil(playbackManager.currentItem)
+  && playbackManager.isVideo
+    ? getImageInfo(playbackManager.currentItem, {
+      preferBackdrop: true
+    }).url
+    : undefined
+);
 
 /**
  * Detaches HLS instance after playback is done
@@ -60,45 +83,70 @@ function detachHls(): void {
   }
 }
 
-const mediaElementType = computed<'audio' | 'video' | undefined>(() => {
-  if (playbackManager.currentlyPlayingMediaType === 'Audio') {
-    return 'audio';
-  } else if (playbackManager.currentlyPlayingMediaType === 'Video') {
-    return 'video';
-  }
-});
-
 /**
- * If the player is a video element and we're in the PiP player or fullscreen video playback,
- * we need to ensure the DOM elements are mounted before the teleport target is ready
+ * Suspends WebAudio when no playback is in place
  */
-const teleportTarget = computed<
-  '.fullscreen-video-container' | '.minimized-video-container' | undefined
->(() => {
-  if (playbackManager.currentlyPlayingMediaType === 'Video') {
-    if (playerElement.isFullscreenMounted) {
-      return '.fullscreen-video-container';
-    } else if (playerElement.isPiPMounted) {
-      return '.minimized-video-container';
+async function detachWebAudio(): Promise<void> {
+  if (mediaWebAudio.context.state === 'running' && !busyWebAudio) {
+    busyWebAudio = true;
+
+    try {
+      if (mediaWebAudio.gainNode) {
+        mediaWebAudio.gainNode.gain.setValueAtTime(mediaWebAudio.gainNode.gain.value, mediaWebAudio.context.currentTime);
+        mediaWebAudio.gainNode.gain.exponentialRampToValueAtTime(0.0001, mediaWebAudio.context.currentTime + 1.5);
+        await nextTick();
+        await new Promise(resolve => window.setTimeout(resolve));
+        mediaWebAudio.gainNode.disconnect();
+        mediaWebAudio.gainNode = undefined;
+      }
+
+      if (mediaWebAudio.sourceNode) {
+        mediaWebAudio.sourceNode.disconnect();
+        mediaWebAudio.sourceNode = undefined;
+      }
+
+      await mediaWebAudio.context.suspend();
+    } catch {} finally {
+      busyWebAudio = false;
     }
   }
-});
+}
 
-const posterUrl = computed<string>(() =>
-  !isNil(playbackManager.currentItem) &&
-  playbackManager.currentlyPlayingMediaType === 'Video'
-    ? getImageInfo(playbackManager.currentItem, {
-        preferBackdrop: true
-      }).url || ''
-    : ''
-);
+/**
+ * Resumes WebAudio when playback is in place
+ */
+async function attachWebAudio(el: HTMLMediaElement): Promise<void> {
+  if (mediaWebAudio.context.state === 'suspended' && !busyWebAudio) {
+    busyWebAudio = true;
+
+    try {
+      await mediaWebAudio.context.resume();
+
+      mediaWebAudio.sourceNode = mediaWebAudio.context.createMediaElementSource(el);
+      mediaWebAudio.sourceNode.connect(mediaWebAudio.context.destination);
+
+      /**
+       * The gain node is to avoid cracks when stopping playback or switching really fast between tracks
+       */
+      mediaWebAudio.gainNode = mediaWebAudio.context.createGain();
+      mediaWebAudio.gainNode.connect(mediaWebAudio.context.destination);
+      mediaWebAudio.gainNode.gain.setValueAtTime(mediaWebAudio.gainNode.gain.value, mediaWebAudio.context.currentTime);
+      mediaWebAudio.gainNode.gain.exponentialRampToValueAtTime(1, mediaWebAudio.context.currentTime + 1.5);
+    } catch {} finally {
+      busyWebAudio = false;
+    }
+  }
+}
 
 /**
  * Called by the media element when the playback is ready
  */
 async function onLoadedData(): Promise<void> {
-  if (playbackManager.currentlyPlayingMediaType === 'Video') {
+  if (playbackManager.isVideo) {
     if (mediaElementRef.value) {
+      /**
+       * Makes the resume start from the correct time
+       */
       mediaElementRef.value.currentTime = playbackManager.currentTime;
     }
 
@@ -109,18 +157,18 @@ async function onLoadedData(): Promise<void> {
 /**
  * Callback for when HLS.js gets an error
  */
-function onHlsEror(_event: Events.ERROR, data: ErrorData): void {
+function onHlsEror(_event: typeof Hls.Events.ERROR, data: ErrorData): void {
   if (data.fatal && hls) {
     switch (data.type) {
       case ErrorTypes.NETWORK_ERROR: {
-        // try to recover network error
-        useSnackbar(t('errors.playback.networkError'), 'error');
+        // Try to recover network error
+        useSnackbar(t('networkError'), 'error');
         console.error('fatal network error encountered, try to recover');
         hls.startLoad();
         break;
       }
       case ErrorTypes.MEDIA_ERROR: {
-        useSnackbar(t('errors.playback.mediaError'), 'error');
+        useSnackbar(t('mediaError'), 'error');
         console.error('fatal media error encountered, try to recover');
         hls.recoverMediaError();
         break;
@@ -129,7 +177,7 @@ function onHlsEror(_event: Events.ERROR, data: ErrorData): void {
         /**
          * Can't recover from unknown errors
          */
-        useSnackbar(t('errors.cantPlayItem'), 'error');
+        useSnackbar(t('cantPlayItem'), 'error');
         playbackManager.stop();
         break;
       }
@@ -137,26 +185,17 @@ function onHlsEror(_event: Events.ERROR, data: ErrorData): void {
   }
 }
 
-watch(
-  () => [
-    playbackManager.currentSubtitleStreamIndex,
-    playerElement.isFullscreenMounted,
-    playerElement.isPiPMounted
-  ],
-  (newVal) => {
-    if (newVal[1] || newVal[2]) {
-      playerElement.applyCurrentSubtitle();
-    }
-  }
-);
-
 watch(mediaElementRef, async () => {
-  await nextTick();
   detachHls();
+  await detachWebAudio();
 
-  if (mediaElementRef.value && mediaElementType.value === 'video' && hls) {
-    hls.attachMedia(mediaElementRef.value);
-    hls.on(Events.ERROR, onHlsEror);
+  if (mediaElementRef.value) {
+    if (mediaElementType.value === 'video' && hls) {
+      hls.attachMedia(mediaElementRef.value);
+      hls.on(Events.ERROR, onHlsEror);
+    }
+
+    await attachWebAudio(mediaElementRef.value);
   }
 });
 
@@ -167,19 +206,24 @@ watch(
       hls.stopLoad();
     }
 
-    if (!newUrl) {
-      return;
-    }
-
     if (
-      mediaElementRef.value &&
-      (playbackManager.currentMediaSource?.SupportsDirectPlay || !hls)
+      mediaElementRef.value
+      && (!newUrl
+        || playbackManager.currentMediaSource?.SupportsDirectPlay
+        || !hls)
     ) {
       /**
-       * For the video case, Safari iOS doesn't support hls.js but supports native HLS
+       * For the video case, Safari iOS doesn't support hls.js but supports native HLS.
+       *
+       * We stringify undefined instead of skipping this block when there's no new source url,
+       * so the player doesn't restart playback of the previous item
        */
-      mediaElementRef.value.src = newUrl;
-    } else if (hls && playbackManager.currentlyPlayingMediaType === 'Video') {
+      mediaElementRef.value.src = String(newUrl);
+    } else if (
+      hls
+      && playbackManager.isVideo
+      && newUrl
+    ) {
       /**
        * We need to check if HLS.js can handle transcoded audio to remove the video check
        */

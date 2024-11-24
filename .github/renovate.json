@@ -1,4 +1,5 @@
 {
+  "timezone": "Europe/Madrid",
   "packageRules": [
     {
       "matchManagers": [
@@ -7,8 +8,7 @@
       "matchDepTypes": [
         "devDependencies"
       ],
-      "groupName": "development dependencies",
-      "groupSlug": "dev-deps"
+      "groupName": "npm (development)"
     },
     {
       "matchManagers": [
@@ -17,29 +17,37 @@
       "matchDepTypes": [
         "dependencies"
       ],
-      "groupName": "dependencies",
-      "groupSlug": "deps"
+      "groupName": "npm (runtime)"
     },
     {
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "CI dependencies",
-      "groupSlug": "ci-deps",
-      "separateMajorMinor": false
+      "separateMajorMinor": false,
+      "groupName": "ci"
     },
     {
-      "matchManagers": [
-        "cargo"
+      "matchFileNames": [
+        "packaging/tauri/**"
       ],
-      "groupName": "Tauri dependencies",
-      "groupSlug": "tauri-deps",
-      "separateMajorMinor": false
+      "separateMajorMinor": false,
+      "groupName": "tauri"
+    },
+    {
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
+      "groupName": "lockfiles",
+      "dependencyDashboardApproval": true
     }
   ],
-  "dependencyDashboard": false,
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
-    "groupName": "vuln-alerts",
+    "enabled": true,
+    "groupName": "vulnerable",
     "labels": [
       "security",
       "dependencies"
@@ -47,7 +55,8 @@
   },
   "ignoreDeps": [
     "npm",
-    "node"
+    "node",
+    "vuetify"
   ],
   "enabledManagers": [
     "npm",
@@ -61,8 +70,9 @@
   "rangeStrategy": "pin",
   "lockFileMaintenance": {
     "enabled": true,
+    "groupName": "lockfiles",
     "schedule": [
-      "every 2 months on the first day of the month"
+      "every month"
     ]
   },
   "assignees": [
@@ -72,5 +82,8 @@
   "reviewers": [
     "ferferga",
     "ThibaultNocchi"
+  ],
+  "extends": [
+    "mergeConfidence:age-confidence-badges"
   ]
 }

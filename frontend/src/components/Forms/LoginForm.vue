@@ -1,15 +1,18 @@
 <template>
   <div>
-    <v-form v-model="valid" :disabled="loading" @submit.prevent="userLogin">
-      <v-text-field
-        v-if="isEmpty(user)"
+    <VForm
+      v-model="valid"
+      :disabled="loading || disabled"
+      @submit.prevent="userLogin">
+      <VTextField
+        v-if="!user"
         v-model="login.username"
         variant="outlined"
-        hide-details
         autofocus
+        hide-details
         :label="$t('username')"
         :rules="rules" />
-      <v-text-field
+      <VTextField
         v-model="login.password"
         variant="outlined"
         hide-details
@@ -17,35 +20,38 @@
         :label="$t('password')"
         :append-inner-icon="showPassword ? IconEyeOff : IconEye"
         :type="showPassword ? 'text' : 'password'"
-        @click:append="() => (showPassword = !showPassword)" />
-      <v-checkbox
+        @click:append-inner="() => (showPassword = !showPassword)" />
+      <VCheckbox
         v-model="login.rememberMe"
         hide-details
-        class="mt-6 mb-6"
+        class="mb-6 mt-6"
         color="primary"
-        :label="$t('login.rememberMe')" />
-      <v-row align="center" no-gutters>
-        <v-col class="mr-2">
-          <v-btn
-            v-if="isEmpty(user)"
+        :label="$t('rememberMe')" />
+      <VRow
+        align="center"
+        no-gutters>
+        <VCol class="mr-2">
+          <VBtn
+            v-if="!user && jsonConfig.allowServerSelection"
             to="/server/select"
             block
             size="large"
-            variant="elevated">
-            {{ $t('login.changeServer') }}
-          </v-btn>
-          <v-btn
-            v-else
+            variant="elevated"
+            @click.prevent>
+            {{ $t('changeServer') }}
+          </VBtn>
+          <VBtn
+            v-else-if="remote.auth.currentServer?.PublicUsers.length"
             block
             size="large"
             variant="elevated"
-            @click="$emit('change')">
-            {{ $t('login.changeUser') }}
-          </v-btn>
-        </v-col>
-        <v-col class="mr-2">
-          <v-btn
-            :disabled="!valid"
+            @click.prevent="$emit('change')">
+            {{ $t('changeUser') }}
+          </VBtn>
+        </VCol>
+        <VCol class="mr-2">
+          <VBtn
+            :disabled="!valid || disabled"
             :loading="loading"
             block
             size="large"
@@ -53,53 +59,48 @@
             variant="elevated"
             type="submit">
             {{ $t('signIn') }}
-          </v-btn>
-        </v-col>
-      </v-row>
-    </v-form>
+          </VBtn>
+        </VCol>
+      </VRow>
+    </VForm>
   </div>
 </template>
 
 <script setup lang="ts">
-import { isEmpty } from 'lodash-es';
-import { ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
-import { UserDto } from '@jellyfin/sdk/lib/generated-client';
-import IconEyeOff from 'virtual:icons/mdi/eye-off';
+import type { UserDto } from '@jellyfin/sdk/lib/generated-client';
 import IconEye from 'virtual:icons/mdi/eye';
-import { useRemote } from '@/composables';
-import { userLibrariesStore } from '@/store';
+import IconEyeOff from 'virtual:icons/mdi/eye-off';
+import { ref, shallowRef } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { fetchIndexPage } from '@/utils/items';
+import { remote } from '@/plugins/remote';
+import { jsonConfig } from '@/utils/external-config';
 
-const remote = useRemote();
-const { t } = useI18n();
-
-const props = defineProps<{ user: UserDto }>();
+const { user, disabled } = defineProps<{ user?: UserDto; disabled?: boolean }>();
 
 defineEmits<{
-  (e: 'change'): void;
+  change: [];
 }>();
 
-const router = useRouter();
-const userLibraries = userLibrariesStore();
+const { t } = useI18n();
 
-const valid = ref(false);
+const valid = shallowRef(false);
 const login = ref({ username: '', password: '', rememberMe: true });
-const showPassword = ref(false);
-const loading = ref(false);
+const showPassword = shallowRef(false);
+const loading = shallowRef(false);
 const rules = [
-  (v: string): boolean | string => !!v.trim() || t('validation.required')
+  (v: string): boolean | string => !!v.trim() || t('required')
 ];
 
 /**
  * Login the user into the client
  */
 async function userLogin(): Promise<void> {
-  if (!isEmpty(props.user)) {
+  if (user) {
     /**
      * If we have a user from the public user selector, set it as login
      */
-    login.value.username = props.user.Name || '';
+    login.value.username = user.Name ?? '';
   }
 
   loading.value = true;
@@ -111,10 +112,12 @@ async function userLogin(): Promise<void> {
       login.value.rememberMe
     );
 
-    await userLibraries.refresh();
-
-    router.replace('/');
-  } finally {
+    /**
+     * We fetch all the default layout data here to keep the "login" button
+     * loading spinner active until we redirect the user.
+     */
+    await fetchIndexPage();
+  } catch {
     loading.value = false;
   }
 }

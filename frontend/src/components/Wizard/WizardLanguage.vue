@@ -1,40 +1,42 @@
 <template>
   <div>
-    <v-select
+    <VSelect
       v-model="uiCulture"
       :loading="loading"
       variant="outlined"
-      :label="t('wizard.preferedLanguage')"
+      :label="t('preferredLanguage')"
       :rules="SomeItemSelectedRule"
       item-title="Name"
       item-value="Value"
       :items="culturesList"
       :disabled="loading" />
-    <v-btn
+    <VBtn
       color="primary"
       variant="elevated"
       :loading="loading"
       @click="setLanguage">
       {{ t('next') }}
-    </v-btn>
+    </VBtn>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
-import {
+import type {
   LocalizationOption,
   StartupConfigurationDto
 } from '@jellyfin/sdk/lib/generated-client';
-import { getStartupApi } from '@jellyfin/sdk/lib/utils/api/startup-api';
 import { getLocalizationApi } from '@jellyfin/sdk/lib/utils/api/localization-api';
-import { useRemote, useSnackbar } from '@/composables';
+import { getStartupApi } from '@jellyfin/sdk/lib/utils/api/startup-api';
+import { onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { SomeItemSelectedRule } from '@/utils/validation';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
 
-const emit = defineEmits<{ (e: 'step-complete'): void }>();
+const emit = defineEmits<{
+  'step-complete': [];
+}>();
 
-const remote = useRemote();
 const { locale, t } = useI18n();
 
 const uiCulture = ref('en-US');
@@ -91,7 +93,7 @@ async function setLanguage(): Promise<void> {
     emit('step-complete');
   } catch (error) {
     console.error(error);
-    useSnackbar(t('wizard.setLanguageError'), 'error');
+    useSnackbar(t('setLanguageError'), 'error');
   }
 
   loading.value = false;

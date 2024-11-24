@@ -1,47 +1,48 @@
 <template>
-  <v-avatar :size="size">
-    <v-img :src="url" :width="size" cover>
+  <VAvatar
+    :size="size">
+    <JImg
+      :src="url"
+      :alt="$t('userImage')"
+      :transition-props="{
+        mode: 'out-in'
+      }">
       <template #placeholder>
-        <v-avatar color="primary" :size="size">
-          <v-icon :size="iconSize">
-            <i-mdi-account />
-          </v-icon>
-        </v-avatar>
+        <VAvatar
+          color="primary"
+          :size="size">
+          <VIcon :size="iconSize">
+            <IMdiAccount />
+          </VIcon>
+        </VAvatar>
       </template>
-    </v-img>
-  </v-avatar>
+    </JImg>
+  </VAvatar>
 </template>
 
 <script setup lang="ts">
-import { UserDto } from '@jellyfin/sdk/lib/generated-client';
+import type { UserDto } from '@jellyfin/sdk/lib/generated-client';
 import { computed } from 'vue';
-import { useRemote } from '@/composables';
+import { remote } from '@/plugins/remote';
 
-const props = withDefaults(
-  defineProps<{
-    user: UserDto;
-    size?: number;
-    quality?: number;
-    rounded?: boolean;
-  }>(),
-  { size: 64, quality: 90, rounded: false }
-);
-
-const remote = useRemote();
+/**
+ * TODO: In reality, rounded is unnecessary since it can be passed as fallthrough,
+ * but it needs to be here since VAvatar expects a truly boolean and fallthroughs are passed as strings.
+ * It also can't be passed as a prop, it needs to not specify a prop for it to work properly
+ * in AppBar's button.
+ */
+const { user, size = 64, rounded } = defineProps<{
+  user: UserDto;
+  size?: number;
+  rounded?: boolean;
+}>();
 
 const url = computed(() => {
-  return props.user?.Id && props.user?.PrimaryImageTag
-    ? `${remote.sdk.api?.basePath}/Users/${props.user.Id}/Images/Primary/?tag=${props.user.PrimaryImageTag}&quality=${props.quality}`
+  return user.Id && user.PrimaryImageTag && remote.sdk.api?.basePath
+    ? `${remote.sdk.api.basePath}/Users/${user.Id}/Images/Primary/?tag=${user.PrimaryImageTag}`
     : undefined;
 });
 const iconSize = computed(() => {
-  return props.size * 0.75;
+  return size * 0.75;
 });
 </script>
-
-<style lang="scss" scoped>
-.user-image {
-  background-size: cover;
-  background-position: center center;
-}
-</style>

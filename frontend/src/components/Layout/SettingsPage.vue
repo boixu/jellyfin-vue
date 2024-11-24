@@ -1,23 +1,34 @@
 <template>
-  <v-container>
-    <v-row v-if="pageTitle">
-      <v-col>
-        <v-row class="mx-0 mt-4 mb-2 justify-space-between">
+  <VContainer>
+    <VRow v-if="$slots.title">
+      <VCol>
+        <VRow class="mt-4 mb-2 mx-0 justify-space-between">
           <h2 class="text-h4">
-            {{ $t(pageTitle) }}
+            <slot name="title" />
           </h2>
           <div>
             <slot name="actions" />
           </div>
-        </v-row>
-      </v-col>
-    </v-row>
-    <v-row>
+        </VRow>
+      </VCol>
+    </VRow>
+    <VRow>
       <slot name="content" />
-    </v-row>
-  </v-container>
+    </VRow>
+  </VContainer>
 </template>
 
 <script setup lang="ts">
-defineProps<{ pageTitle?: string }>();
+import { useSlots, computed } from 'vue';
+import { usePageTitle } from '@/composables/page-title';
+import { isStr } from '@/utils/validation';
+
+const slots = useSlots();
+const pageTitle = computed(() => {
+  const slot = slots.title?.()[0].children;
+
+  return isStr(slot) ? slot : undefined;
+});
+
+usePageTitle(pageTitle);
 </script>

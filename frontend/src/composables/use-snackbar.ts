@@ -1,12 +1,10 @@
-import { useSnackbar as snackbar } from '@/components/System/Snackbar.vue';
-
 /**
- * In order to keep the code that tracks the state of the component
- * alongside the component itself, we need the composable
- * to live alongside the component.
+ * == COMPONENT COMPOSABLE ==
  *
- * Thus, this file just exports the useSnackbar function from the component
+ * The definition of the composable are in the relevant component,
+ * so the code that tracks the sate of the component are alongside the component itself.
+ *
+ * We could re-define it here, but we would lose access to the
+ * JSDoc of the original: that's why we just re-export it again.
  */
-export function useSnackbar(...args: Parameters<typeof snackbar>): void {
-  snackbar(...args);
-}
+export { useSnackbar } from '@/components/System/Snackbar.vue';

@@ -1,16 +1,18 @@
 {
   "recommendations": [
-    "antfu.vite",
-    "antfu.browse-lite",
     "antfu.iconify",
     "aaron-bond.better-comments",
     "eamodio.gitlens",
-    "Vue.volar",
-    "Vue.vscode-typescript-vue-plugin",
+    "vue.volar",
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
     "lokalise.i18n-ally",
-    "ryanluker.vscode-coverage-gutters"
+    "ryanluker.vscode-coverage-gutters",
+    "yoavbls.pretty-ts-errors",
+    "SonarSource.sonarlint-vscode"
   ],
-  "unwantedRecommendations": ["octref.vetur"]
+  "unwantedRecommendations": [
+    "octref.vetur",
+    "esbenp.prettier-vscode",
+    "vue.vscode-typescript-vue-plugin"
+  ]
 }

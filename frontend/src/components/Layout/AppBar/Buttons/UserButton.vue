@@ -1,52 +1,58 @@
 <template>
-  <app-bar-button-layout v-if="auth.currentUser">
+  <AppBarButtonLayout v-if="auth.currentUser">
     <template #icon>
-      <user-image :user="auth.currentUser" :size="40" rounded />
-      <v-menu location="bottom">
-        <v-list class="min-list-width" density="compact">
-          <v-list-item>
+      <UserImage
+        :user="auth.currentUser"
+        :size="40"
+        rounded />
+      <VMenu location="bottom">
+        <VList
+          class="min-list-width"
+          density="compact">
+          <VListItem>
             <template #prepend>
-              <v-avatar>
-                <user-image :user="auth.currentUser" :size="40" rounded />
-              </v-avatar>
+              <UserImage
+                :user="auth.currentUser"
+                :size="40"
+                rounded />
             </template>
             <template #title>
-              <v-list-item-title class="text-body-1">
+              <VListItemTitle class="text-body-1">
                 {{ auth.currentUser.Name }}
-              </v-list-item-title>
+              </VListItemTitle>
             </template>
             <template
               v-if="auth.currentUser?.Policy?.IsAdministrator"
               #subtitle>
-              <v-list-item-subtitle>
+              <VListItemSubtitle>
                 {{ $t('administrator') }}
-                <v-icon size="small">
-                  <i-mdi-key-chain />
-                </v-icon>
-              </v-list-item-subtitle>
+                <VIcon size="small">
+                  <IMdiKeyChain />
+                </VIcon>
+              </VListItemSubtitle>
             </template>
-          </v-list-item>
-          <v-divider class="my-2" />
-          <v-list-item
+          </VListItem>
+          <VDivider class="my-2" />
+          <VListItem
             v-for="(item, index) in menuItems"
             :key="`bottomMenuItems-${index}`"
             :prepend-icon="item.icon"
             :title="item.title"
             @click="item.action" />
-        </v-list>
-      </v-menu>
+        </VList>
+      </VMenu>
     </template>
-  </app-bar-button-layout>
+  </AppBarButtonLayout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useI18n } from 'vue-i18n';
 import IMdiCog from 'virtual:icons/mdi/cog';
 import IMdiLogout from 'virtual:icons/mdi/logout';
 import IMdiPencil from 'virtual:icons/mdi/pencil';
-import { useRemote } from '@/composables';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { remote } from '@/plugins/remote';
 
 interface MenuItem {
   title: string;
@@ -55,7 +61,7 @@ interface MenuItem {
 }
 
 const router = useRouter();
-const auth = useRemote().auth;
+const auth = remote.auth;
 const { t } = useI18n();
 
 const menuItems = computed<MenuItem[]>(() => {
@@ -65,25 +71,25 @@ const menuItems = computed<MenuItem[]>(() => {
     menuItems.push({
       title: t('metadataEditor'),
       icon: IMdiPencil,
-      action: (): void => {
-        router.push('/metadata');
+      action: async (): Promise<void> => {
+        await router.push('/metadata');
       }
     });
   }
 
   menuItems.push(
     {
-      title: t('settings.settings'),
+      title: t('settings'),
       icon: IMdiCog,
-      action: (): void => {
-        router.push('/settings');
+      action: async (): Promise<void> => {
+        await router.push('/settings');
       }
     },
     {
       title: t('logout'),
       icon: IMdiLogout,
-      action: (): void => {
-        auth.logoutCurrentUser();
+      action: async (): Promise<void> => {
+        await auth.logoutCurrentUser();
       }
     }
   );
@@ -92,7 +98,7 @@ const menuItems = computed<MenuItem[]>(() => {
 });
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .min-list-width {
   min-width: 200px;
 }

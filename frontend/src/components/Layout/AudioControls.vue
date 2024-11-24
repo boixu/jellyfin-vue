@@ -1,106 +1,129 @@
 <template>
-  <v-slide-y-reverse-transition mode="out-in">
-    <v-footer
+  <JTransition
+    name="slide-y-reverse"
+    mode="out-in">
+    <VFooter
       v-if="
         playbackManager.isPlaying &&
-        playbackManager.currentlyPlayingMediaType === 'Audio' &&
-        playbackManager.currentItem
+          playbackManager.isAudio &&
+          !isNil(playbackManager.currentItem)
       "
       app
-      class="user-select-none pa-0">
-      <v-container fluid>
-        <v-row class="ma-0">
-          <v-col cols="9" md="3" class="d-flex flex-row pa-0">
-            <router-link :to="'/playback/music'">
-              <v-avatar :size="$vuetify.display.xs ? 50 : 85" color="primary">
-                <blurhash-image :item="playbackManager.currentItem" />
-              </v-avatar>
-            </router-link>
-            <v-col class="d-flex flex-column justify-center ml-4">
-              <v-row class="align-end">
-                <router-link
+      class="pa-0 uno-select-none">
+      <VContainer fluid>
+        <VRow class="ma-0">
+          <VCol
+            cols="9"
+            md="3"
+            class="d-flex pa-0 flex-row">
+            <RouterLink :to="'/playback/music'">
+              <div class="img uno-h-20 uno-w-20">
+                <BlurhashImage :item="playbackManager.currentItem" />
+              </div>
+            </RouterLink>
+            <VCol class="d-flex flex-column justify-center ml-4">
+              <VRow class="align-end">
+                <RouterLink
                   v-slot="{ navigate }"
                   :to="getItemDetailsLink(playbackManager.currentItem)"
                   custom>
                   <span
-                    class="text-truncate link height-fit-content"
+                    class="link text-truncate uno-h-fit"
                     @click="navigate">
                     {{ playbackManager.currentItem.Name }}
                   </span>
-                </router-link>
-              </v-row>
-              <v-row
+                </RouterLink>
+              </VRow>
+              <VRow
                 v-if="playbackManager.currentItem.ArtistItems"
                 class="align-start">
                 <span
                   v-for="artist in playbackManager.currentItem.ArtistItems"
                   :key="`artist-${artist.Id}`">
-                  <p class="mb-0 mr-2">
-                    <router-link
+                  <p class="mr-2 mb-0">
+                    <RouterLink
                       v-slot="{ navigate }"
                       :to="getItemDetailsLink(artist, 'MusicArtist')"
                       custom>
                       <span
-                        class="font-weight-light text-caption text-truncate link"
+                        class="text-truncate link text-caption"
                         @click="navigate">
                         {{ artist.Name }}
                       </span>
-                    </router-link>
+                    </RouterLink>
                   </p>
                 </span>
-              </v-row>
-            </v-col>
-          </v-col>
-          <v-col cols="6" class="pa-0 d-none d-md-inline">
+              </VRow>
+            </VCol>
+          </VCol>
+          <VCol
+            cols="6"
+            class="pa-0 d-none d-md-inline">
             <div class="d-flex flex-column justify-center">
               <div class="d-flex align-center justify-center">
-                <shuffle-button class="mx-1" />
-                <previous-track-button class="mx-1" />
-                <play-pause-button class="mx-1" />
-                <next-track-button class="mx-1" />
-                <repeat-button class="mx-1" />
+                <ShuffleButton class="mx-1" />
+                <PreviousTrackButton class="mx-1" />
+                <PlayPauseButton class="mx-1" />
+                <NextTrackButton class="mx-1" />
+                <RepeatButton class="mx-1" />
               </div>
-              <time-slider />
+              <TimeSlider />
             </div>
-          </v-col>
-          <v-col cols="3" class="d-none d-md-flex align-center justify-end">
-            <like-button
-              :item="playbackManager.currentItem"
-              class="active-button" />
-            <queue-button />
-            <div class="hidden-lg-and-down">
-              <volume-slider />
-            </div>
-            <item-menu :item="playbackManager.currentItem" :z-index="99999" />
-            <v-btn icon to="/playback/music">
-              <v-icon>
-                <i-mdi-fullscreen />
-              </v-icon>
-            </v-btn>
-          </v-col>
-          <v-col
+          </VCol>
+          <VCol
             cols="3"
-            class="d-flex d-md-none pa-0 align-center justify-end">
-            <play-pause-button class="mx-1" />
-            <next-track-button class="mx-1" />
-            <repeat-button v-if="!$vuetify.display.xs" class="mx-1" />
-            <shuffle-button v-if="!$vuetify.display.xs" class="mx-1" />
-          </v-col>
-        </v-row>
-      </v-container>
-    </v-footer>
-  </v-slide-y-reverse-transition>
+            class="d-none align-center d-md-flex justify-end">
+            <LikeButton :item="playbackManager.currentItem" />
+            <QueueButton />
+            <div class="hidden-lg-and-down">
+              <VolumeSlider />
+            </div>
+            <ItemMenu
+              :item="playbackManager.currentItem"
+              :media-source-index="playbackManager.currentMediaSourceIndex"
+              :z-index="99999" />
+            <VBtn
+              icon
+              to="/playback/music">
+              <VIcon>
+                <IMdiFullscreen />
+              </VIcon>
+            </VBtn>
+          </VCol>
+          <VCol
+            cols="3"
+            class="d-flex pa-0 align-center justify-end d-md-none">
+            <PlayPauseButton class="mx-1" />
+            <NextTrackButton class="mx-1" />
+            <RepeatButton
+              v-if="!$vuetify.display.xs"
+              class="mx-1" />
+            <ShuffleButton
+              v-if="!$vuetify.display.xs"
+              class="mx-1" />
+          </VCol>
+        </VRow>
+      </VContainer>
+    </VFooter>
+  </JTransition>
 </template>
 
 <script setup lang="ts">
+import { isNil } from '@/utils/validation';
+import { playbackManager } from '@/store/playback-manager';
 import { getItemDetailsLink } from '@/utils/items';
-import { playbackManagerStore } from '@/store';
-
-const playbackManager = playbackManagerStore();
 </script>
 
-<style lang="scss" scoped>
-.height-fit-content {
-  height: fit-content;
+<style scoped>
+/* TODO: This class was extracted from VAvatar. Remove this once a JAvatar component is created */
+.img {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: normal;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
 }
 </style>

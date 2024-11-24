@@ -1,76 +1,51 @@
 <template>
-  <v-fade-transition>
-    <canvas
-      ref="canvas"
-      :key="`canvas-${hash}`"
-      :width="width"
-      :height="height"
-      class="absolute-cover" />
-  </v-fade-transition>
+  <canvas
+    v-if="!error"
+    ref="canvas"
+    v-bind="$attrs"
+    :key="`canvas-${hash}`"
+    :width="width"
+    :height="height" />
+  <slot v-else />
 </template>
 
-<script lang="ts">
-import { ref, watch } from 'vue';
-import { wrap } from 'comlink';
-import BlurhashWorker from './BlurhashWorker?worker&inline';
-
-const worker = new BlurhashWorker();
-const pixelWorker = wrap<typeof import('./BlurhashWorker')['default']>(worker);
-</script>
-
 <script setup lang="ts">
-const props = withDefaults(
-  defineProps<{
-    hash: string;
-    width?: number;
-    height?: number;
-    punch?: number;
-  }>(),
-  { width: 32, height: 32, punch: 1 }
-);
+import { transfer } from 'comlink';
+import { shallowRef, watch, useTemplateRef } from 'vue';
+import { computedAsync } from '@vueuse/core';
+import { blurhashDecoder, canvasDrawer } from '@/plugins/workers';
+import { BLURHASH_DEFAULT_HEIGHT, BLURHASH_DEFAULT_WIDTH, BLURHASH_DEFAULT_PUNCH } from '@/store';
 
-const emit = defineEmits<{
-  (e: 'error'): void;
+const { hash, width = BLURHASH_DEFAULT_WIDTH, height = BLURHASH_DEFAULT_HEIGHT, punch = BLURHASH_DEFAULT_PUNCH } = defineProps<{
+  hash: string;
+  width?: number;
+  height?: number;
+  punch?: number;
 }>();
 
-const pixels = ref<Uint8ClampedArray | undefined>(undefined);
-const canvas = ref<HTMLCanvasElement | undefined>(undefined);
+const error = shallowRef(false);
+const canvas = useTemplateRef<HTMLCanvasElement>('canvas');
+const offscreen = shallowRef<OffscreenCanvas>();
+const pixels = computedAsync(async () => await blurhashDecoder.getPixels(hash, width, height, punch));
 
-watch([props, canvas], async () => {
-  if (canvas.value) {
-    const context = canvas.value.getContext('2d');
-    const imageData = context?.createImageData(props.width, props.height);
-
+watch(canvas, () => {
+  offscreen.value = canvas.value ? canvas.value.transferControlToOffscreen() : undefined;
+});
+watch([pixels, offscreen], async () => {
+  if (offscreen.value && pixels.value) {
     try {
-      pixels.value = await pixelWorker(
-        props.hash,
-        props.width,
-        props.height,
-        props.punch
-      );
+      error.value = false;
+      await canvasDrawer.drawBlurhash(transfer(
+        { canvas: offscreen.value,
+          pixels: pixels.value,
+          width: width,
+          height: height
+        }, [offscreen.value]));
     } catch {
-      pixels.value = undefined;
-      emit('error');
+      error.value = true;
 
       return;
-    }
-
-    if (imageData && context) {
-      imageData.data.set(pixels.value);
-      context.putImageData(imageData, 0, 0);
     }
   }
 });
 </script>
-
-<style lang="scss" scoped>
-.fade-fast-enter-active,
-.fade-fast-leave-active {
-  transition: opacity 0.15s;
-}
-
-.fade-fast-enter,
-.fade-fast-leave-to {
-  opacity: 0;
-}
-</style>

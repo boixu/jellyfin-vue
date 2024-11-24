@@ -1,30 +1,26 @@
-import 'vue-router';
-// eslint-disable-next-line no-restricted-imports
-import { RemotePlugin } from '@/plugins/remote/types';
-// eslint-disable-next-line no-restricted-imports
-import { languageMap } from '@/plugins/i18n';
-import enUS from '@/../locales/en-US.json';
-import 'vue-i18n';
+import type en from '@/../locales/en.json';
+import type { JTransitionProps } from '@/components/lib/JTransition.vue';
+import type { RemotePlugin } from '@/plugins/remote/types';
 
 /**
- * The object that represents RouteMeta is defined at @/plugins/vue/router/middleware/meta
+ * The object that represents RouteMeta is defined at @/plugins/router/middleware/meta
  */
-interface BackdropPayload {
-  blurhash?: string;
-  opacity?: number;
+interface RouteTransitionPayload {
+  enter?: NonNullable<JTransitionProps['name']>;
+  leave?: JTransitionProps['name'];
+  mode?: JTransitionProps['mode'];
 }
-interface RouteTransition {
-  enter: string;
-  leave?: string;
+
+interface LayoutPayload {
+  readonly name?: 'default' | 'fullpage' | 'server';
+  transparent?: boolean;
+  transition: RouteTransitionPayload;
 }
 declare module 'vue-router' {
   interface RouteMeta {
-    readonly layout: string;
-    transparentLayout?: boolean;
-    transition?: RouteTransition;
-    readonly admin: boolean;
+    readonly layout: LayoutPayload;
+    readonly admin?: boolean;
     title?: string | null;
-    backdrop: BackdropPayload;
   }
 }
 
@@ -35,15 +31,8 @@ declare module 'vue' {
 }
 
 declare module 'vue-i18n' {
-  interface Composer {
-    /**
-     * An array of the locale codes that matches the locale name
-     */
-    readonly localeNames: typeof languageMap;
-  }
+  type messages = typeof en;
 
-  type messages = typeof enUS;
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   export interface DefineLocaleMessage extends messages {}
 }
 
@@ -52,4 +41,4 @@ declare module 'vue-i18n' {
  * https://www.typescriptlang.org/docs/handbook/modules.html
  */
 
-export {};
+export { };

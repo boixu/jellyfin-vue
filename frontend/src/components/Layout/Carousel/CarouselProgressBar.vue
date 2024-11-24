@@ -3,7 +3,7 @@
     <div
       v-for="i in pages"
       :key="`progress-key-${i}`"
-      :class="useResponsiveClasses('progress-bar')"
+      :class="useResponsiveClasses('progress-bar uno-cursor-pointer')"
       @click.capture="emit('progressClicked', i - 1)">
       <div
         :class="useResponsiveClasses(barClasses[i - 1])"
@@ -15,21 +15,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useResponsiveClasses } from '@/composables';
+import { useResponsiveClasses } from '@/composables/use-responsive-classes';
 
-const props = withDefaults(
-  defineProps<{
-    pages: number;
-    currentIndex: number;
-    duration: number;
-    paused: boolean;
-    hoverable?: boolean;
-  }>(),
-  { hoverable: false }
-);
+const { pages, currentIndex, duration, paused, hoverable } = defineProps<{
+  pages: number;
+  currentIndex: number;
+  /**
+   * In milliseconds
+   */
+  duration: number;
+  paused: boolean;
+  hoverable?: boolean;
+}>();
+
 const emit = defineEmits<{
-  (e: 'animationEnd'): void;
-  (e: 'progressClicked', index: number): void;
+  animationEnd: [];
+  progressClicked: [index: number];
 }>();
 
 const display = useDisplay();
@@ -40,23 +41,23 @@ const defaultBarClasses = Object.freeze([
   'align-center',
   'justify-center'
 ]);
-const expand = computed(() => props.hoverable && !display.mobile.value);
-const animDuration = computed(() => (props.duration / 1000).toString() + 's');
+const expand = computed(() => hoverable && !display.mobile.value);
+const animDuration = computed(() => (duration / 1000).toString() + 's');
 const barClasses = computed(() =>
-  Array.from({ length: props.pages }).map((_, i) => {
+  Array.from({ length: pages }).map((_, i) => {
     const classes = [...defaultBarClasses];
 
     if (expand.value) {
       classes.push('expand');
     }
 
-    if (i === props.currentIndex) {
+    if (i === currentIndex) {
       classes.push('active');
 
-      if (props.paused) {
+      if (paused) {
         classes.push('paused');
       }
-    } else if (i < props.currentIndex) {
+    } else if (i < currentIndex) {
       classes.push('passed');
     }
 
@@ -65,7 +66,7 @@ const barClasses = computed(() =>
 );
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .progress-bar-container {
   box-sizing: border-box;
   display: flex;
@@ -78,7 +79,6 @@ const barClasses = computed(() =>
 }
 
 .progress-bar {
-  cursor: pointer !important;
   height: 30px;
   display: flex;
   justify-content: center;
@@ -101,10 +101,10 @@ const barClasses = computed(() =>
   display: block;
   background-image: linear-gradient(
     to right,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 1) 50%,
-    rgba(255, 255, 255, 0.3) 50.001%,
-    rgba(255, 255, 255, 0.3) 100%
+    rgba(var(--v-border-color), 1) 0%,
+    rgba(var(--v-border-color), 1) 50%,
+    rgba(var(--v-border-color), 0.3) 50.001%,
+    rgba(var(--v-border-color), 0.3) 100%
   );
   background-repeat: no-repeat;
   background-size: 200%;

@@ -17,8 +17,10 @@
  * than ideal.
  */
 export function supportsMediaSource(): boolean {
-  // Browsers that lack a media source implementation will have no reference
-  // to |window.MediaSource|.
+  /*
+   * Browsers that lack a media source implementation will have no reference
+   * to |window.MediaSource|.
+   */
   return !!window.MediaSource;
 }
 
@@ -72,8 +74,10 @@ export function isChromiumBased(): boolean {
  * @returns Determines if browser is Google Chrome
  */
 export function isChrome(): boolean {
-  // The Edge user agent will also contain the "Chrome" keyword, so we need
-  // to make sure this is not Edge.
+  /*
+   * The Edge user agent will also contain the "Chrome" keyword, so we need
+   * to make sure this is not Edge.
+   */
   return userAgentContains('Chrome') && !isEdge() && !isWebOS();
 }
 
@@ -88,7 +92,7 @@ export function isChrome(): boolean {
  * @returns Determines if current platform is from Apple
  */
 export function isApple(): boolean {
-  return navigator?.vendor.includes('Apple') && !isTizen();
+  return navigator.vendor.includes('Apple') && !isTizen();
 }
 
 /**
@@ -108,20 +112,24 @@ export function safariVersion(): number | undefined {
     userAgent = navigator.userAgent;
   }
 
-  // This works for iOS Safari and desktop Safari, which contain something
-  // like "Version/13.0" indicating the major Safari or iOS version.
-  let match = userAgent.match(/Version\/(\d+)/);
+  /*
+   * This works for iOS Safari and desktop Safari, which contain something
+   * like "Version/13.0" indicating the major Safari or iOS version.
+   */
+  let match = /Version\/(\d+)/.exec(userAgent);
 
   if (match) {
-    return Number.parseInt(match[1], /* base= */ 10);
+    return Number.parseInt(match[1], /* Base= */ 10);
   }
 
-  // This works for all other browsers on iOS, which contain something like
-  // "OS 13_3" indicating the major & minor iOS version.
-  match = userAgent.match(/OS (\d+)(?:_\d+)?/);
+  /*
+   * This works for all other browsers on iOS, which contain something like
+   * "OS 13_3" indicating the major & minor iOS version.
+   */
+  match = /OS (\d+)(?:_\d+)?/.exec(userAgent);
 
   if (match) {
-    return Number.parseInt(match[1], /* base= */ 10);
+    return Number.parseInt(match[1], /* Base= */ 10);
   }
 }
 
@@ -200,9 +208,9 @@ export function isWebOS(): boolean {
  */
 export function isWebOS1(): boolean {
   return (
-    isWebOS() &&
-    userAgentContains('AppleWebKit/537') &&
-    !userAgentContains('Chrome/')
+    isWebOS()
+    && userAgentContains('AppleWebKit/537')
+    && !userAgentContains('Chrome/')
   );
 }
 
@@ -211,9 +219,9 @@ export function isWebOS1(): boolean {
  */
 export function isWebOS2(): boolean {
   return (
-    isWebOS() &&
-    userAgentContains('AppleWebKit/538') &&
-    !userAgentContains('Chrome/')
+    isWebOS()
+    && userAgentContains('AppleWebKit/538')
+    && !userAgentContains('Chrome/')
   );
 }
 
@@ -264,15 +272,17 @@ export function isMobile(): boolean {
     return true;
   }
 
-  // Starting with iOS 13 on iPad, the user agent string no longer has the
-  // word "iPad" in it.  It looks very similar to desktop Safari.  This seems
-  // to be intentional on Apple's part.
-  // See: https://forums.developer.apple.com/thread/119186
-  //
-  // So if it's an Apple device with multi-touch support, assume it's a mobile
-  // device.  If some future iOS version starts masking their user agent on
-  // both iPhone & iPad, this clause should still work.  If a future
-  // multi-touch desktop Mac is released, this will need some adjustment.
+  /*
+   * Starting with iOS 13 on iPad, the user agent string no longer has the
+   * word "iPad" in it.  It looks very similar to desktop Safari.  This seems
+   * to be intentional on Apple's part.
+   * See: https://forums.developer.apple.com/thread/119186
+   *
+   * So if it's an Apple device with multi-touch support, assume it's a mobile
+   * device.  If some future iOS version starts masking their user agent on
+   * both iPhone & iPad, this clause should still work.  If a future
+   * multi-touch desktop Mac is released, this will need some adjustment.
+   */
   return isApple() && navigator.maxTouchPoints > 1;
 }
 

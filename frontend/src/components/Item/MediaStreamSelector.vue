@@ -1,47 +1,47 @@
 <template>
-  <v-select
+  <VSelect
     v-model="trackIndex"
+    :clearable="type === 'Subtitle'"
+    :placeholder="type === 'Subtitle' ? t('disabled') : undefined"
     density="comfortable"
-    single-line
     hide-details
-    class="text-truncate"
+    single-line
+    class="text-truncate uno-text-capitalize"
     :items="selectItems">
     <template #selection="{ item }">
       {{ item.raw.selection }}
     </template>
 
     <template #item="{ item, props: templateProps }">
-      <v-list-item
+      <VListItem
         v-bind="templateProps"
         :title="item.raw.title"
         :subtitle="item.raw.subtitle"
         :prepend-icon="item.raw.icon" />
     </template>
-  </v-select>
+  </VSelect>
 </template>
 
-<script lang="ts" setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { getName } from 'all-iso-language-codes';
-import { startCase } from 'lodash-es';
-import { MediaStream } from '@jellyfin/sdk/lib/generated-client';
+import type { MediaStream } from '@jellyfin/sdk/lib/generated-client';
 import { useI18n } from 'vue-i18n';
 import IMdiSurroundSound20 from 'virtual:icons/mdi/surround-sound-2-0';
 import IMdiSurroundSound31 from 'virtual:icons/mdi/surround-sound-3-1';
 import IMdiSurroundSound51 from 'virtual:icons/mdi/surround-sound-5-1';
 import IMdiSurroundSound71 from 'virtual:icons/mdi/surround-sound-7-1';
 import IMdiSurroundSound from 'virtual:icons/mdi/surround-sound';
+import { watchImmediate } from '@vueuse/core';
+import { getLocaleName } from '@/utils/i18n';
+import { upperFirst } from '@/utils/data-manipulation';
 
-const props = withDefaults(
-  defineProps<{
-    mediaStreams: MediaStream[];
-    type: string;
-    defaultStreamIndex?: number;
-  }>(),
-  { defaultStreamIndex: undefined }
-);
-const emits = defineEmits<{
-  (e: 'input', newIndex?: number): void;
+const { mediaStreams, type, defaultStreamIndex } = defineProps<{
+  mediaStreams: MediaStream[];
+  type: string;
+  defaultStreamIndex?: number;
+}>();
+const emit = defineEmits<{
+  input: [newIndex?: number];
 }>();
 const { t, locale } = useI18n();
 
@@ -76,7 +76,7 @@ function getSurroundIcon(layout: string): typeof IMdiSurroundSound {
 function getTrackIcon(
   track: MediaStream
 ): typeof IMdiSurroundSound | undefined {
-  if (props.type === 'Audio' && track.ChannelLayout) {
+  if (type === 'Audio' && track.ChannelLayout) {
     return getSurroundIcon(track.ChannelLayout);
   }
 }
@@ -86,11 +86,12 @@ function getTrackIcon(
  * @returns Optional subtitle to use for the track line in the v-select menu
  */
 function getTrackSubtitle(track: MediaStream): string | undefined {
-  if ((props.type === 'Audio' || props.type === 'Subtitle') && track.Language) {
-    return startCase(
-      getName(track.Language, locale.value.split('-')[0]) ?? t('undefined')
+  if ((type === 'Audio' || type === 'Subtitle') && track.Language) {
+    return upperFirst(
+      getLocaleName(track.Language, locale.value)
+      ?? `${t('unknown')} (${track.Language})`
     );
-  } else if (props.type === 'Audio' || props.type === 'Subtitle') {
+  } else if (type === 'Audio' || type === 'Subtitle') {
     return t('undefined');
   }
 }
@@ -100,66 +101,47 @@ function getTrackSubtitle(track: MediaStream): string | undefined {
  *
  * @returns List of objects prepared for Vuetify v-select with the strings to display as "text" and index number as "value".
  */
-const selectItems = computed(() => {
-  const items = props.mediaStreams.map((value) => {
-    return {
-      icon: getTrackIcon(value),
-      selection: value.DisplayTitle ?? '',
-      subtitle: getTrackSubtitle(value),
-      title: value.DisplayTitle ?? '',
-      value: value.Index
-    };
-  });
-
-  if (props.type === 'Subtitle') {
-    items.unshift({
-      icon: undefined,
-      selection: t('disabled'),
-      subtitle: undefined,
-      value: -1,
-      title: t('disabled')
-    });
-  }
-
-  return items;
-});
-
-/**
- * Default index to use (undefined if none)
- */
-const defaultIndex =
-  props.defaultStreamIndex === undefined
-    ? props.mediaStreams.find((track) => track.IsDefault)?.Index
-    : props.defaultStreamIndex;
-
-const trackIndex = ref<number | undefined>(
-  defaultIndex === undefined ? -1 : defaultIndex
+const selectItems = computed(() =>
+  mediaStreams.map(value => ({
+    icon: getTrackIcon(value),
+    selection: value.DisplayTitle ?? '',
+    subtitle: getTrackSubtitle(value),
+    title: value.DisplayTitle ?? '',
+    value: value.Index
+  }))
 );
 
 /**
- * Check if Type is Video or Audio and trackIndex is -1 then set trackIndex as this.selectItems[0].value
+ * Default index to use (null if none because of V-Select empty value)
+ */
+// eslint-disable-next-line unicorn/no-null
+const trackIndex = ref<number | null>(defaultStreamIndex ?? mediaStreams.find(track => track.IsDefault)?.Index ?? null);
+
+/**
+ * Check if Type is Video or Audio and trackIndex is null then set trackIndex as this.selectItems[0].value
  */
 if (
-  (props.type === 'Video' || props.type === 'Audio') &&
-  trackIndex.value === -1 &&
-  selectItems.value[0] !== undefined
+  (type === 'Video' || type === 'Audio')
+  && trackIndex.value === null
+  && selectItems.value[0]
 ) {
-  trackIndex.value = selectItems.value[0].value;
+  // eslint-disable-next-line unicorn/no-null
+  trackIndex.value = selectItems.value[0].value ?? null;
 }
 
-watch(
+watchImmediate(
   trackIndex,
   (newValue) => {
-    emits('input', newValue);
-  },
-  { immediate: true }
+    emit('input', newValue ?? undefined);
+  }
 );
 
 watch(
-  () => props.defaultStreamIndex,
+  () => defaultStreamIndex,
   (newValue) => {
     if (newValue !== trackIndex.value) {
-      trackIndex.value = newValue;
+      // eslint-disable-next-line unicorn/no-null
+      trackIndex.value = newValue ?? null;
     }
   }
 );

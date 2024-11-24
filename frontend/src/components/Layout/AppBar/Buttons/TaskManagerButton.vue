@@ -1,82 +1,83 @@
 <template>
-  <app-bar-button-layout v-if="showButton" :color="buttonColor">
+  <AppBarButtonLayout
+    v-if="showButton"
+    :color="buttonColor">
     <template #icon>
-      <v-progress-circular v-if="!buttonColor" indeterminate size="24" />
-      <v-icon v-else>
-        <i-mdi-check />
-      </v-icon>
-      <v-menu
+      <VProgressCircular
+        v-if="!buttonColor"
+        indeterminate
+        size="24" />
+      <VIcon v-else>
+        <IMdiCheck />
+      </VIcon>
+      <VMenu
         v-model="menu"
         :close-on-content-click="false"
         persistent
         :transition="'slide-y-transition'"
         location="bottom"
-        :z-index="500">
-        <v-card min-width="25em">
-          <v-list>
-            <v-list-item
+        :z-index="1006">
+        <VCard min-width="25em">
+          <VList>
+            <VListItem
               v-for="task in UITaskList"
               :key="`${task.id}`"
-              :title="$t(task.textKey, { ...task.textParams })">
+              :title="task.text">
               <template #append>
-                <v-progress-circular
+                <VProgressCircular
                   v-if="task.progress !== 100"
                   :indeterminate="
                     task.progress === undefined || task.progress === 0
                   "
                   :model-value="task.progress"
                   size="24" />
-                <v-icon v-else>
-                  <i-mdi-check />
-                </v-icon>
+                <VIcon v-else>
+                  <IMdiCheck />
+                </VIcon>
               </template>
-            </v-list-item>
-          </v-list>
-        </v-card>
-      </v-menu>
+            </VListItem>
+          </VList>
+        </VCard>
+      </VMenu>
     </template>
     <template #tooltip>
-      <span>{{ $t('appbar.tooltips.tasks') }}</span>
+      <span>{{ $t('runningTasks') }}</span>
     </template>
-  </app-bar-button-layout>
+  </AppBarButtonLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { taskManagerStore } from '@/store';
-import { TaskType } from '@/store/taskManager';
+import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { taskManager, TaskType } from '@/store/task-manager';
 
 interface TaskInfo {
   progress: undefined | number;
-  textKey: string;
-  textParams?: Record<string, string>;
+  text: string;
   id: string;
 }
 
-defineProps<{ fab?: boolean }>();
-
 const menu = ref(false);
-const taskManager = taskManagerStore();
 const completedTaskList = ref<TaskInfo[]>([]);
+const { t } = useI18n();
 
 const mappedTaskList = computed<TaskInfo[]>(() => {
-  return taskManager.tasks.map((t) => {
-    switch (t.type) {
+  return taskManager.tasks.map((tsk) => {
+    switch (tsk.type) {
       case TaskType.ConfigSync: {
         return {
-          progress: t.progress,
-          textKey: 'appbar.tasks.configSync',
-          id: t.id
+          progress: tsk.progress,
+          text: t('syncingSettingsInProgress'),
+          id: tsk.id
         };
       }
       case TaskType.LibraryRefresh: {
         return {
-          progress: t.progress,
-          textKey: 'appbar.tasks.scanningLibrary',
-          textParams: {
-            library: t.data ?? ''
-          },
-          id: t.id
+          progress: tsk.progress,
+          text: t('scanningItemInProgress', {
+            library: tsk.data ?? ''
+          }),
+          id: tsk.id
         };
       }
     }
@@ -84,7 +85,7 @@ const mappedTaskList = computed<TaskInfo[]>(() => {
 });
 
 const mappedCompleted = computed(() =>
-  mappedTaskList.value.filter((t) => t.progress === 100)
+  mappedTaskList.value.filter(t => t.progress === 100)
 );
 const allCompleted = computed(
   () => mappedCompleted.value.length === mappedTaskList.value.length
@@ -92,23 +93,20 @@ const allCompleted = computed(
 const buttonColor = computed(() =>
   allCompleted.value ? 'success' : undefined
 );
-const UITaskList = computed(
-  () =>
-    new Set([
-      ...(menu.value
-        ? mappedTaskList.value.filter((t) => t.progress !== 100)
-        : mappedTaskList.value),
-      ...completedTaskList.value
-    ])
-);
-const showButton = computed(() => UITaskList.value.size > 0);
+const UITaskList = computed(() => [
+  ...(menu.value
+    ? mappedTaskList.value.filter(t => t.progress !== 100)
+    : mappedTaskList.value),
+  ...completedTaskList.value
+]);
+const showButton = computed(() => UITaskList.value.length);
 
 watch([menu, mappedCompleted], () => {
   if (menu.value) {
-    const ids = new Set(completedTaskList.value.map((t) => t.id));
+    const ids = new Set(completedTaskList.value.map(t => t.id));
 
     completedTaskList.value.push(
-      ...mappedCompleted.value.filter((t) => !ids.has(t.id))
+      ...mappedCompleted.value.filter(t => !ids.has(t.id))
     );
   } else {
     completedTaskList.value = [];

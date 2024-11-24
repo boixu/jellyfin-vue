@@ -1,18 +1,16 @@
 /**
  * Utility for converting time between ticks and milliseconds
  */
+import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
 import {
   addMilliseconds,
   format,
   formatDuration,
   intervalToDuration
 } from 'date-fns';
-import { sumBy } from 'lodash-es';
-import { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
-import { computed, ComputedRef, isRef } from 'vue';
-import { MaybeRef } from '@vueuse/core';
 import { now } from '@/store';
-import { useDateFns, usei18n } from '@/composables';
+import { i18n } from '@/plugins/i18n';
+import { useDateFns } from '@/composables/use-datefns';
 
 /**
  * Formats Time
@@ -22,7 +20,7 @@ import { useDateFns, usei18n } from '@/composables';
  * @returns Formated seconds number
  */
 function formatDigits(number: number): string {
-  return ('0' + number).slice(-2);
+  return `0${number}`.slice(-2);
 }
 
 /**
@@ -32,11 +30,7 @@ function formatDigits(number: number): string {
  * @returns The converted value in milliseconds
  */
 export function ticksToMs(ticks: number | null | undefined): number {
-  if (!ticks) {
-    ticks = 0;
-  }
-
-  return Math.round(ticks / 10_000);
+  return ticks ? Math.round(ticks / 10_000) : 0;
 }
 
 /**
@@ -78,30 +72,23 @@ export function formatTime(seconds: number): string {
  * @param ticks - Ticks of the item to calculate
  * @returns The resulting date object
  */
-function getEndsAtDate(ticks: MaybeRef<number>): ComputedRef<Date> {
-  return computed(() => {
-    const ms = ticksToMs(isRef(ticks) ? ticks.value : ticks);
-
-    return addMilliseconds(now.value, ms);
-  });
+function getEndsAtDate(ticks: number): Date {
+  return addMilliseconds(now.value, ticksToMs(ticks));
 }
 
 /**
  * Returns the end time of an item as an string.
- * Changes in real time
+ * Changes in real time BUT MUST BE USED INSIDE A TEMPLATE
  *
  * @param ticks - Ticks of the item to calculate
  * @returns The resulting string
  */
-export function getEndsAtTime(ticks: MaybeRef<number>): ComputedRef<string> {
-  return computed(() => {
-    const i18n = usei18n();
+export function getEndsAtTime(ticks: number): string {
+  const endDate = getEndsAtDate(ticks);
+  const form = useDateFns(format, endDate, 'p');
 
-    const form = useDateFns(format, getEndsAtDate(ticks).value, 'p');
-
-    return i18n.t('endsAt', {
-      time: form.value
-    });
+  return i18n.t('endsAt', {
+    time: form
   });
 }
 
@@ -111,20 +98,16 @@ export function getEndsAtTime(ticks: MaybeRef<number>): ComputedRef<string> {
  * @param ticks - Ticks of the item to calculate
  * @returns The resulting string
  */
-export function getRuntimeTime(ticks: MaybeRef<number>): ComputedRef<string> {
-  return computed(() => {
-    ticks = isRef(ticks) ? ticks.value : ticks;
+export function getRuntimeTime(ticks: number): string {
+  const ms = ticksToMs(ticks);
 
-    const ms = ticksToMs(ticks);
-
-    return useDateFns(
-      formatDuration,
-      intervalToDuration({ start: 0, end: ms }),
-      {
-        format: ['hours', 'minutes']
-      }
-    );
-  }).value;
+  return useDateFns(
+    formatDuration,
+    intervalToDuration({ start: 0, end: ms }),
+    {
+      format: ['hours', 'minutes']
+    }
+  );
 }
 
 /**
@@ -134,11 +117,9 @@ export function getRuntimeTime(ticks: MaybeRef<number>): ComputedRef<string> {
  * @returns The resulting string
  */
 export function getTotalEndsAtTime(
-  items: MaybeRef<BaseItemDto[]>
-): ComputedRef<string> {
-  return computed(() => {
-    const ticks = sumBy(isRef(items) ? items.value : items, 'RunTimeTicks');
+  items: BaseItemDto[]
+): string {
+  const aggregatedTicks = items.reduce((acc, item) => acc + (item.RunTimeTicks ?? 0), 0);
 
-    return getEndsAtTime(ticks).value;
-  });
+  return getEndsAtTime(aggregatedTicks);
 }

@@ -1,51 +1,53 @@
 <template>
-  <v-dialog
+  <VDialog
     :model-value="addingNewKey"
     :width="width"
     @update:model-value="emit('close')">
-    <v-col class="pa-0 add-key-dialog">
-      <v-card>
-        <v-card-title>{{ t('settings.apiKeys.addApiKey') }}</v-card-title>
-        <v-card-actions>
-          <v-form class="add-key-form" @submit.prevent="addApiKey">
-            <v-text-field
+    <VCol class="pa-0 add-key-dialog">
+      <VCard>
+        <VCardTitle>{{ t('addApiKey') }}</VCardTitle>
+        <VCardActions>
+          <VForm
+            class="add-key-form"
+            @submit.prevent="addApiKey">
+            <VTextField
               v-model="newKeyAppName"
               variant="outlined"
-              :label="t('settings.apiKeys.appName')" />
-            <v-btn
+              :label="t('appName')" />
+            <VBtn
               color="primary"
               :loading="loading"
               :disabled="newKeyAppName === ''"
               @click="addApiKey">
               {{ $t('confirm') }}
-            </v-btn>
-            <v-btn @click="emit('close')">
+            </VBtn>
+            <VBtn @click="emit('close')">
               {{ $t('cancel') }}
-            </v-btn>
-          </v-form>
-        </v-card-actions>
-      </v-card>
-    </v-col>
-  </v-dialog>
+            </VBtn>
+          </VForm>
+        </VCardActions>
+      </VCard>
+    </VCol>
+  </VDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useDisplay } from 'vuetify';
-import { useI18n } from 'vue-i18n';
 import { getApiKeyApi } from '@jellyfin/sdk/lib/utils/api/api-key-api';
-import { useRemote, useSnackbar } from '@/composables';
+import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useDisplay } from 'vuetify';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
 
-defineProps<{ addingNewKey: boolean }>();
+const { addingNewKey } = defineProps<{ addingNewKey: boolean }>();
 
 const emit = defineEmits<{
-  (e: 'keyAdded'): void;
-  (e: 'close'): void;
+  keyAdded: [];
+  close: [];
 }>();
 
 const { t } = useI18n();
 const display = useDisplay();
-const remote = useRemote();
 
 const newKeyAppName = ref('');
 const loading = ref(false);
@@ -67,7 +69,7 @@ const width = computed(() => {
   }
 });
 
-/** adds a new api key */
+/** Adds a new api key */
 async function addApiKey(): Promise<void> {
   loading.value = true;
 
@@ -76,21 +78,21 @@ async function addApiKey(): Promise<void> {
       app: newKeyAppName.value
     });
 
-    useSnackbar(t('settings.apiKeys.createKeySuccess'), 'success');
+    useSnackbar(t('createKeySuccess'), 'success');
 
     newKeyAppName.value = '';
     emit('keyAdded');
     emit('close');
   } catch (error) {
     console.error(error);
-    useSnackbar(t('settings.apiKeys.createKeyFailure'), 'error');
+    useSnackbar(t('createKeyFailure'), 'error');
   }
 
   loading.value = false;
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .add-key-form {
   width: 100%;
 }

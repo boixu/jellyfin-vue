@@ -1,113 +1,76 @@
-import { computed, watch } from 'vue';
+import { watch } from 'vue';
 import {
   createRouter,
   createWebHashHistory,
   createWebHistory
 } from 'vue-router';
-import { useTitle } from '@vueuse/core';
-import { setupLayouts } from 'virtual:generated-layouts';
-import generatedRoutes from 'virtual:generated-pages';
-import loginGuard from './middlewares/login';
-import adminGuard from './middlewares/admin-pages';
-import validateGuard from './middlewares/validate';
-import metaGuard from './middlewares/meta';
-import playbackGuard from './middlewares/playback';
-import { getJSONConfig } from '@/utils/external-config';
-import { useRemote } from '@/composables';
+import { remote } from '../remote';
+import { adminGuard } from './middlewares/admin-pages';
+import { loginGuard } from './middlewares/login';
+import { metaGuard } from './middlewares/meta';
+import { validateGuard } from './middlewares/validate';
+import { isStr } from '@/utils/validation';
+import { jsonConfig } from '@/utils/external-config';
 
-const router = createRouter({
+export const router = createRouter({
   history:
-    (await getJSONConfig()).routerMode === 'history'
+    jsonConfig.routerMode === 'history'
       ? createWebHistory()
       : createWebHashHistory(),
-  routes: setupLayouts(generatedRoutes)
+  routes: [],
+  /**
+   * TODO: Fix this, so it only scrolls to the top once suspense resolves
+   */
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { top: 0 };
+  }
 });
 
 /**
- * Middlewares
- *  - The order IS IMPORTANT (meta handling should always go first)
+ * Middleware pipeline: The order IS IMPORTANT (meta handling should always go last)
+ *
+ * Route-specific guards should be defined in the route itself, not here.
  */
-router.beforeEach(metaGuard);
 router.beforeEach(loginGuard);
 router.beforeEach(adminGuard);
 router.beforeEach(validateGuard);
-router.beforeEach(playbackGuard);
+router.beforeEach(metaGuard);
 
 /**
  * Replaces the 'back' function, taking into account if there's a previous page or not.
  * If there's no previous page in history, we ensure we want to go home
  */
-router.back = (): ReturnType<typeof router.back> => {
+const backTransition = 'slide-x';
+
+router.back = () => {
   const route = router.currentRoute;
-  const leaveTransition = 'scroll-x-transition';
 
   /**
-   * Play the same transition we do at RouterViewTransition.vue (scroll-x-reverse-transition)
-   * but reversed, to play a different effect when going to the previous page.
+   * Play the default page transition but reversed, to play a different effect when going
+   * to the previous page.
    */
-  if (!route.value.meta.transition) {
-    route.value.meta.transition = {
-      enter: 'scroll-x-reverse-transition',
-      leave: leaveTransition
-    };
-  } else if (!route.value.meta.transition.leave) {
-    route.value.meta.transition.leave = leaveTransition;
-  }
+  route.value.meta.layout.transition = {
+    enter: 'slide-x-reverse',
+    leave: route.value.meta.layout.transition.leave ?? backTransition
+  };
 
-  router.replace(
-    typeof router.options.history.state.back === 'string'
-      ? router.options.history.state.back
-      : '/'
-  );
+  if (isStr(router.options.history.state.back)) {
+    router.go(-1);
+  } else {
+    void router.replace('/');
+  }
 };
 
 /**
- * Handle page title changes
+ * Re-run the middleware pipeline when the user logs out or state is cleared,
+ * no additional logic is here so we can keep the the login middleware
+ * is the only source of truth.
  */
-const pageTitle = computed(() => {
-  const title = router.currentRoute.value.meta.title?.trim();
-
-  return title ? `${title} | Jellyfin Vue` : 'Jellyfin Vue';
-});
-
-useTitle(pageTitle);
-
-/**
- * Re-run the middleware pipeline when the user logs out
- */
-const remote = useRemote();
-
-watch(
-  [
-    (): typeof remote.auth.currentUser => remote.auth.currentUser,
-    (): typeof remote.auth.servers => remote.auth.servers
-  ],
-  () => {
-    if (!remote.auth.currentUser && remote.auth.servers.length <= 0) {
-      /**
-       * We run the redirect to /server/add as it's the first page in the login flow
-       *
-       * In case the whole localStorage is gone at runtime, if we're at the login
-       * page, redirecting to /server/login wouldn't work, as we're in that same page.
-       * /server/add doesn't depend on the state of localStorage, so it's always safe to
-       * redirect there and leave the middleware take care of the final destination
-       * (when servers are already available, for example)
-       */
-      router.replace('/server/add');
-    } else if (
-      !remote.auth.currentUser &&
-      remote.auth.servers.length > 0 &&
-      remote.auth.currentServer
-    ) {
-      router.replace('/server/login');
-    } else if (
-      !remote.auth.currentUser &&
-      remote.auth.servers.length > 0 &&
-      !remote.auth.currentServer
-    ) {
-      router.replace('/server/select');
-    }
-  }
-);
-
-export default router;
+watch([
+  () => remote.auth.currentUser,
+  () => remote.auth.currentServer
+], () => {
+  void router.replace({
+    force: true
+  });
+}, { flush: 'sync' });

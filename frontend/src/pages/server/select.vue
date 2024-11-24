@@ -1,43 +1,48 @@
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row justify="center">
-      <v-col sm="6" md="6" lg="5">
+  <VContainer
+    class="fill-height"
+    fluid>
+    <VRow justify="center">
+      <VCol
+        sm="6"
+        md="6"
+        lg="5">
         <h1 class="text-h4 mb-6 text-center">
-          {{ $t('login.selectServer') }}
+          {{ $t('selectServer') }}
         </h1>
         <div>
-          <server-card
+          <ServerCard
             v-for="server in $remote.auth.servers"
-            :key="server.Id || v4()"
+            :key="server.Id || useId()"
             class="mt-2"
             :server-info="server" />
         </div>
-        <v-btn
+        <VBtn
           class="mt-6"
           block
           size="large"
           color="primary"
           variant="elevated"
           @click="$router.push('/server/add')">
-          {{ $t('login.addServer') }}
-        </v-btn>
-      </v-col>
-    </v-row>
-  </v-container>
+          {{ $t('addServer') }}
+        </VBtn>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>
 
 <route lang="yaml">
 meta:
-  layout: server
+  layout:
+    name: server
 </route>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { useId } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { v4 } from 'uuid';
+import { usePageTitle } from '@/composables/page-title';
 
 const { t } = useI18n();
-const route = useRoute();
 
-route.meta.title = t('login.selectServer');
+usePageTitle(() => t('selectServer'));
 </script>

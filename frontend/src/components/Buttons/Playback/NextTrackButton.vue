@@ -1,18 +1,15 @@
 <template>
-  <v-btn
+  <VBtn
+    v-bind="$attrs"
     icon
-    :size="props.size"
     :disabled="!playbackManager.nextItem"
-    @click="playbackManager.setNextTrack">
-    <v-icon :size="size">
-      <i-mdi-skip-next />
-    </v-icon>
-  </v-btn>
+    @click="playbackManager.setNextItem">
+    <VIcon v-bind="$attrs">
+      <IMdiSkipNext />
+    </VIcon>
+  </VBtn>
 </template>
 
 <script setup lang="ts">
-import { playbackManagerStore } from '@/store';
-
-const props = defineProps<{ size?: string }>();
-const playbackManager = playbackManagerStore();
+import { playbackManager } from '@/store/playback-manager';
 </script>

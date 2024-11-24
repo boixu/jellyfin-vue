@@ -1,6 +1,6 @@
-import { useVuetify } from '.';
+import { vuetify } from '@/plugins/vuetify';
 
-const display = useVuetify().display;
+const display = vuetify.display;
 
 /**
  * Returns an additional class based on current Vuetify breakpoint.
@@ -17,7 +17,7 @@ const display = useVuetify().display;
  * when the mobile breakpoint is active.
  */
 export function useResponsiveClasses(classes: string): string {
-  let out = `${classes}`;
+  let out = classes;
 
   if (display.lg.value) {
     out += ' lg';

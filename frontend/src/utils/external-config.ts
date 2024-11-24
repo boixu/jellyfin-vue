@@ -1,7 +1,8 @@
-import { isNil } from 'lodash-es';
+import { isArray, isBool, isNil, isObj, isStr } from '@/utils/validation';
 
 interface ExternalJSONConfig {
   defaultServerURLs: string[];
+  allowServerSelection: boolean;
   routerMode: 'hash' | 'history';
 }
 
@@ -13,29 +14,33 @@ let externalConfig: ExternalJSONConfig | undefined;
 function validateJsonConfig(
   config: unknown
 ): asserts config is ExternalJSONConfig {
-  if (typeof config !== 'object' || !config) {
+  if (!isObj(config)) {
     throw new Error('Expected not null or defined config');
   }
 
   if (
-    !('defaultServerURLs' in config) ||
-    !Array.isArray(config.defaultServerURLs)
+    !('defaultServerURLs' in config)
+    || !isArray(config.defaultServerURLs)
   ) {
     throw new Error('Expected defaultServerURLS array');
   }
 
   if (
     config.defaultServerURLs.some(
-      (defaultServerURL) => typeof defaultServerURL !== 'string'
+      defaultServerURL => !isStr(defaultServerURL)
     )
   ) {
     throw new Error('Expected defaultServerURLs to be a list of strings');
   }
 
+  if (!('allowServerSelection' in config) || !isBool(config.allowServerSelection)) {
+    throw new Error('Expected allowServerSelection to be boolean');
+  }
+
   if (
-    !('routerMode' in config) ||
-    typeof config.routerMode !== 'string' ||
-    !['hash', 'history'].includes(config.routerMode)
+    !('routerMode' in config)
+    || !isStr(config.routerMode)
+    || !['hash', 'history'].includes(config.routerMode)
   ) {
     throw new Error('Expected router mode to be either hash or history');
   }
@@ -45,9 +50,11 @@ function validateJsonConfig(
  * Fetch configuration at runtime from the config.json file
  * We use destr for serialization as it has better support for JS primitives.
  */
-export async function getJSONConfig(): Promise<ExternalJSONConfig> {
+async function getJSONConfig(): Promise<ExternalJSONConfig> {
   if (isNil(externalConfig)) {
-    const loadedConfig = await (await fetch('/config.json')).json();
+    const loadedConfig: unknown = await (
+      await fetch('config.json', { cache: 'no-store' })
+    ).json();
 
     validateJsonConfig(loadedConfig);
 
@@ -56,3 +63,5 @@ export async function getJSONConfig(): Promise<ExternalJSONConfig> {
 
   return externalConfig;
 }
+
+export const jsonConfig = await getJSONConfig();

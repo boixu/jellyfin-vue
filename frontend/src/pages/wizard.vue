@@ -1,8 +1,16 @@
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row justify="center">
-      <v-col cols="12" sm="12" md="12" xl="8">
-        <h1 class="text-h4 mb-6 text-center">{{ heading }}</h1>
+  <VContainer
+    class="fill-height"
+    fluid>
+    <VRow justify="center">
+      <VCol
+        cols="12"
+        sm="12"
+        md="12"
+        xl="8">
+        <h1 class="mb-6 text-h4 text-center">
+          {{ heading }}
+        </h1>
         <!-- TODO: Wait for Vuetify 3 implementation (https://github.com/vuetifyjs/vuetify/issues/13509) -->
         <!-- <v-stepper v-model="wizardStage" class="transparent-background">
           <v-stepper-header>
@@ -68,26 +76,27 @@
             </v-stepper-content>
           </v-stepper-items>
         </v-stepper> -->
-      </v-col>
-    </v-row>
-  </v-container>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>
 
 <route lang="yaml">
 meta:
-  layout: server
+  layout:
+    name: server
 </route>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useI18n } from 'vue-i18n';
 import { getStartupApi } from '@jellyfin/sdk/lib/utils/api/startup-api';
-import { useRemote, useSnackbar } from '@/composables';
+import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { remote } from '@/plugins/remote';
 
 const { t } = useI18n();
 const router = useRouter();
-const remote = useRemote();
 
 const wizardStage = ref(1);
 const maxWizardStage = ref(1);
@@ -95,16 +104,16 @@ const maxWizardStage = ref(1);
 const heading = computed(() => {
   switch (wizardStage.value) {
     case 1: {
-      return t('wizard.languageLocale');
+      return t('languageLocale');
     }
     case 2: {
-      return t('wizard.administratorAccount');
+      return t('administratorAccount');
     }
     case 3: {
-      return t('wizard.preferredMetadataLanguage');
+      return t('preferredMetadataLanguage');
     }
     case 4: {
-      return t('wizard.remoteAccess');
+      return t('remoteAccess');
     }
   }
 
@@ -117,24 +126,24 @@ const heading = computed(() => {
 async function completeWizard(): Promise<void> {
   try {
     const api = remote.sdk.oneTimeSetup(
-      remote.auth.currentServer?.PublicAddress || ''
+      remote.auth.currentServer?.PublicAddress ?? ''
     );
 
     await getStartupApi(api).completeWizard();
     // Redirect to setup complete page
-    router.replace('/server/login');
+    await router.replace('/server/login');
   } catch (error) {
     console.error(error);
-    useSnackbar(t('wizard.completeError'), 'success');
+    useSnackbar(t('completeError'), 'success');
   }
 }
 
 /**
  * Change wizard step forward
  */
-function nextStep(): void {
+async function nextStep(): Promise<void> {
   if (wizardStage.value === 4) {
-    completeWizard();
+    await completeWizard();
   } else {
     wizardStage.value += 1;
   }
@@ -153,7 +162,7 @@ function previousStep(): void {
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .transparent-background {
   background-color: transparent !important;
 }

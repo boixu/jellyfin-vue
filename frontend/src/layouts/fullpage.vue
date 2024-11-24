@@ -1,3 +1,6 @@
 <template>
-  <router-view-transition />
+  <slot />
 </template>
+
+<script setup lang="ts">
+</script>

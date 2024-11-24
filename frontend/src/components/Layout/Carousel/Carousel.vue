@@ -1,6 +1,6 @@
 <template>
-  <div class="swiperContainer user-select-none">
-    <carousel-progress-bar
+  <div class="swiper-parent uno-select-none">
+    <CarouselProgressBar
       v-if="progressBar && topProgressBar && slides > 0"
       :pages="slides"
       :current-index="currentIndex"
@@ -10,24 +10,23 @@
       hoverable
       @animation-end="onAnimationEnd"
       @progress-clicked="onProgressClicked" />
-    <swiper
+    <Swiper
       :modules="modules"
-      :class="useResponsiveClasses('swiper')"
-      :initial-slide="0"
-      loop
-      parallax
-      autoplay
+      :class="useResponsiveClasses('swiper-el')"
       effect="fade"
       :fade-effect="{ crossFade: true }"
-      keyboard
+      autoplay
       a11y
-      @swiper="setControlledSwiper"
-      @slide-change="onSlideChange"
+      loop
+      parallax
+      keyboard
+      @swiper="(swiper) => swiperInstance = swiper"
+      @real-index-change="onSlideChange"
       @touch-start="onTouch"
       @touch-end="onTouch">
       <slot name="slides" />
-    </swiper>
-    <carousel-progress-bar
+    </Swiper>
+    <CarouselProgressBar
       v-if="progressBar && !topProgressBar && slides > 0"
       :pages="slides"
       :current-index="currentIndex"
@@ -41,64 +40,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { A11y, Parallax, EffectFade, Keyboard, Virtual } from 'swiper';
 import type SwiperType from 'swiper';
 import 'swiper/css';
+import 'swiper/css/a11y';
 import 'swiper/css/effect-fade';
 import 'swiper/css/keyboard';
 import 'swiper/css/parallax';
-import 'swiper/css/a11y';
 import 'swiper/css/virtual';
+import { A11y, EffectFade, Keyboard, Parallax, Virtual } from 'swiper/modules';
 import { Swiper } from 'swiper/vue';
-import { useResponsiveClasses } from '@/composables';
+import { ref, shallowRef } from 'vue';
+import { useResponsiveClasses } from '@/composables/use-responsive-classes';
 
-withDefaults(
-  defineProps<{
-    slides: number;
-    slideDuration?: number;
-    progressBar?: boolean;
-    topProgressBar?: boolean;
-    pageBackdrop?: boolean;
-  }>(),
-  {
-    slideDuration: 7000,
-    progressBar: false,
-    topProgressBar: false,
-    pageBackdrop: false
-  }
-);
+const { slideDuration = 7000, progressBar, topProgressBar } = defineProps<{
+  slides: number;
+  /**
+   * In milliseconds
+   */
+  slideDuration?: number;
+  progressBar?: boolean;
+  topProgressBar?: boolean;
+}>();
 
 const emit = defineEmits<{
-  (e: 'on-slide-change', currentIndex: number, swiper: SwiperType): void;
-  (e: 'on-touch', isPaused: boolean, swiper: SwiperType): void;
+  'on-slide-change': [currentIndex: number, swiper: SwiperType];
+  'on-touch': [isPaused: boolean, swiper: SwiperType];
 }>();
 
 const modules = [A11y, Parallax, EffectFade, Keyboard, Virtual];
 
 const currentIndex = ref(0);
 const isPaused = ref(false);
-const swiperInstance = ref<SwiperType>();
-const setControlledSwiper = (instance: SwiperType): void => {
-  swiperInstance.value = instance;
-};
+const swiperInstance = shallowRef<SwiperType>();
 
 /**
- * HACK: Swiper seems to have a bug where the components inside of duplicated slides (when loop is enabled,
- * swiper creates a duplicate of the first one, so visually it looks like you started all over before repositioning all the DOM)
- * doesn't get the parameters passed correctly on components that calls to methods. Whenever the beginning or the end is reached,
- * we force a loop reload to fix this.
- *
- * See https://github.com/nolimits4web/swiper/issues/2629 and https://github.com/surmon-china/vue-awesome-swiper/issues/483
+ * Handle slide changes
  */
 function onSlideChange(): void {
-  currentIndex.value = swiperInstance.value?.realIndex || 0;
-
-  if (swiperInstance.value?.isBeginning || swiperInstance.value?.isEnd) {
-    swiperInstance.value?.updateSlides();
-  }
-
   if (swiperInstance.value) {
+    currentIndex.value = swiperInstance.value.realIndex;
     emit('on-slide-change', currentIndex.value, swiperInstance.value);
   }
 }
@@ -106,9 +86,8 @@ function onSlideChange(): void {
  * Handle touch events
  */
 function onTouch(): void {
-  isPaused.value = !isPaused.value;
-
   if (swiperInstance.value) {
+    isPaused.value = !isPaused.value;
     emit('on-touch', isPaused.value, swiperInstance.value);
   }
 }
@@ -117,7 +96,10 @@ function onTouch(): void {
  * Handle animation end from progress bars
  */
 function onAnimationEnd(): void {
-  swiperInstance.value?.slideNext();
+  if (swiperInstance.value) {
+    swiperInstance.value.allowSlideNext = true;
+    swiperInstance.value.slideNext();
+  }
 }
 
 /**
@@ -128,6 +110,31 @@ function onProgressClicked(index: number): void {
 }
 </script>
 
-<style lang="scss" scoped>
-@import '@/assets/styles/Carousel/index.scss';
+<style scoped>
+.swiper-parent {
+  min-width: 100%;
+  min-height: 100%;
+  position: relative;
+}
+
+.swiper-el.md-and-up {
+  margin-bottom: -128px !important;
+}
+
+.swiper-el.sm-and-up {
+  margin-top: -64px;
+}
+
+.progress-bar {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  margin-top: 0;
+}
+
+.progress-bar.sm-and-up {
+  position: relative !important;
+  top: initial;
+  margin-top: initial;
+}
 </style>

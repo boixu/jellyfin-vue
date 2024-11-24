@@ -1,64 +1,72 @@
 <template>
   <div :class="large ? useResponsiveClasses('large-grid') : undefined">
-    <v-row v-if="loading">
-      <v-col cols="12" :class="useResponsiveClasses('card-grid-container')">
-        <skeleton-card v-for="n in 24" :key="n" text />
-      </v-col>
-    </v-row>
-    <virtual-grid
-      v-else-if="!loading && items.length > 0 && !noVirtual"
-      :items="items"
-      :buffer-multiplier="2"
-      :throttle-scroll="175"
-      :class="useResponsiveClasses('card-grid-container')">
-      <template #default="{ item, style }">
-        <card :style="style" :item="item" margin text overlay link />
-      </template>
-    </virtual-grid>
-    <div
-      v-else-if="!loading && items.length > 0 && noVirtual"
-      :class="useResponsiveClasses('card-grid-container')">
-      <template v-for="item of items" :key="item.Id">
-        <card :item="item" margin text overlay link />
-      </template>
-    </div>
-    <v-row v-else-if="!loading && items.length === 0" justify="center">
-      <v-col
+    <template v-if="items.length">
+      <JVirtual
+        v-if="!noVirtual"
+        v-slot="{ item }"
+        :items="items"
+        grid
+        index-as-key
+        :class="useResponsiveClasses('card-grid-container')">
+        <ItemCard
+          :item="item"
+          margin
+          link
+          text
+          overlay />
+      </JVirtual>
+      <div
+        v-else
+        :class="useResponsiveClasses('card-grid-container')">
+        <template
+          v-for="item of items"
+          :key="item.Id">
+          <ItemCard
+            :item="item"
+            margin
+            text
+            overlay
+            link />
+        </template>
+      </div>
+    </template>
+    <VRow
+      v-else
+      justify="center">
+      <VCol
         cols="12"
         :class="
           useResponsiveClasses('card-grid-container empty-card-container')
         ">
-        <skeleton-card v-for="n in 24" :key="n" text boilerplate />
-      </v-col>
-      <div class="empty-message text-center">
+        <SkeletonCard
+          v-for="n in 24"
+          :key="n"
+          text
+          boilerplate />
+      </VCol>
+      <div class="text-center empty-message">
         <slot>
           <h1 class="text-h5">
             {{ $t('noResultsFound') }}
           </h1>
         </slot>
       </div>
-    </v-row>
+    </VRow>
   </div>
 </template>
 
 <script setup lang="ts">
-import { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
-import { useResponsiveClasses } from '@/composables';
+import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
+import { useResponsiveClasses } from '@/composables/use-responsive-classes';
 
-withDefaults(
-  defineProps<{
-    items: BaseItemDto[];
-    loading?: boolean;
-    large?: boolean;
-    noVirtual?: boolean;
-  }>(),
-  {
-    noVirtual: false
-  }
-);
+const { items, large, noVirtual } = defineProps<{
+  items: BaseItemDto[];
+  large?: boolean;
+  noVirtual?: boolean;
+}>();
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .empty-card-container {
   max-height: 90vh;
   overflow: hidden;
@@ -106,5 +114,13 @@ withDefaults(
 
 .large-grid.xl .card-grid-container.xl {
   grid-template-columns: repeat(5, minmax(calc(100% / 5), 1fr));
+}
+
+.card-grid-container.xxl {
+  grid-template-columns: repeat(12, minmax(calc(100% / 12), 1fr));
+}
+
+.large-grid.xxl .card-grid-container.xxl {
+  grid-template-columns: repeat(6, minmax(calc(100% / 6), 1fr));
 }
 </style>

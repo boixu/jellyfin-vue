@@ -2,25 +2,26 @@
  * This plugin instantiates the Jellyfin SDK.
  * It also sets the header and base URL for our axios instance
  */
-import { watchEffect } from 'vue';
-import { Api } from '@jellyfin/sdk';
-import { isNil } from 'lodash-es';
-import RemotePluginAxiosInstance from '../axios';
+import type { Api } from '@jellyfin/sdk';
+import { watchSyncEffect } from 'vue';
 import RemotePluginAuthInstance from '../auth';
+import RemotePluginAxiosInstance from '../axios';
 import SDK, { useOneTimeAPI } from './sdk-utils';
+import { isNil, sealed } from '@/utils/validation';
 
+@sealed
 class RemotePluginSDK {
-  private sdk = SDK;
-  public clientInfo = this.sdk.clientInfo;
-  public deviceInfo = this.sdk.deviceInfo;
-  public discovery = this.sdk.discovery;
+  private readonly sdk = SDK;
+  public readonly clientInfo = this.sdk.clientInfo;
+  public readonly deviceInfo = this.sdk.deviceInfo;
+  public readonly discovery = this.sdk.discovery;
   public api: Api | undefined;
 
   public constructor(auth: typeof RemotePluginAuthInstance) {
     /**
      * Configure app's axios instance to perform requests to the given Jellyfin server.
      */
-    watchEffect(() => {
+    watchSyncEffect(() => {
       const server = auth.currentServer;
       const accessToken = auth.currentUserToken;
 
@@ -33,8 +34,8 @@ class RemotePluginSDK {
           accessToken,
           RemotePluginAxiosInstance.instance
         );
-        RemotePluginAxiosInstance.instance.defaults.baseURL =
-          server.PublicAddress;
+        RemotePluginAxiosInstance.instance.defaults.baseURL
+          = server.PublicAddress;
       }
     });
   }
@@ -47,7 +48,7 @@ class RemotePluginSDK {
    */
   public newUserApi<T>(apiSec: (api: Api) => T): T {
     // We want to explicitly assume the user is already logged in here
-    return apiSec(this.api as Api);
+    return apiSec(this.api!);
   }
 }
 

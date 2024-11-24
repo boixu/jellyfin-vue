@@ -1,6 +1,6 @@
 <template>
   <div>
-    <v-select
+    <VSelect
       v-model="metadataLanguage"
       variant="outlined"
       :label="t('metadataLanguage')"
@@ -9,7 +9,7 @@
       item-value="TwoLetterISOLanguageName"
       :items="cultureOptions"
       :disabled="loading" />
-    <v-select
+    <VSelect
       v-model="metadataCountry"
       variant="outlined"
       :label="t('metadataCountry')"
@@ -18,43 +18,43 @@
       item-value="TwoLetterISORegionName"
       :items="countryOptions"
       :disabled="loading" />
-    <v-btn
+    <VBtn
       color="secondary"
       variant="elevated"
       :disabled="loading"
       @click="emit('previous-step')">
       {{ t('previous') }}
-    </v-btn>
-    <v-btn
+    </VBtn>
+    <VBtn
       :loading="loading"
       color="primary"
       variant="elevated"
       @click="setMetadata">
       {{ t('next') }}
-    </v-btn>
+    </VBtn>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import {
+import type {
   CountryInfo,
   CultureDto,
   StartupConfigurationDto
 } from '@jellyfin/sdk/lib/generated-client';
 import { getLocalizationApi } from '@jellyfin/sdk/lib/utils/api/localization-api';
 import { getStartupApi } from '@jellyfin/sdk/lib/utils/api/startup-api';
-import { useRemote, useSnackbar } from '@/composables';
+import { onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { SomeItemSelectedRule } from '@/utils/validation';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
 
 const emit = defineEmits<{
-  (e: 'step-complete'): void;
-  (e: 'previous-step'): void;
+  'step-complete': [];
+  'previous-step': [];
 }>();
 
 const { t } = useI18n();
-const remote = useRemote();
 
 const metadataLanguage = ref('');
 const metadataCountry = ref('');
@@ -72,8 +72,8 @@ onMounted(async () => {
     await getStartupApi(api).getStartupConfiguration()
   ).data;
 
-  metadataLanguage.value = initialConfig.value?.MetadataCountryCode ?? '';
-  metadataCountry.value = initialConfig.value?.PreferredMetadataLanguage ?? '';
+  metadataLanguage.value = initialConfig.value.MetadataCountryCode ?? '';
+  metadataCountry.value = initialConfig.value.PreferredMetadataLanguage ?? '';
 
   cultureOptions.value = (await getLocalizationApi(api).getCultures()).data;
   countryOptions.value = (await getLocalizationApi(api).getCountries()).data;
@@ -101,7 +101,7 @@ async function setMetadata(): Promise<void> {
     emit('step-complete');
   } catch (error) {
     console.error(error);
-    useSnackbar(t('wizard.setMetadataError'), 'error');
+    useSnackbar(t('setMetadataError'), 'error');
   } finally {
     loading.value = false;
   }

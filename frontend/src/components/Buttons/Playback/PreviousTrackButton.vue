@@ -1,16 +1,16 @@
 <template>
-  <v-btn icon :size="size" @click="playbackManager.setPreviousTrack">
-    <v-icon :size="size">
-      <i-mdi-skip-previous />
-    </v-icon>
-  </v-btn>
+  <VBtn
+    v-bind="$attrs"
+    icon
+    @click="() => playbackManager.setPreviousItem()"
+    @dblclick="() => playbackManager.setPreviousItem(true)">
+    <VIcon v-bind="$attrs">
+      <IMdiSkipPrevious />
+    </VIcon>
+  </VBtn>
 </template>
 
 <script setup lang="ts">
 import IMdiSkipPrevious from 'virtual:icons/mdi/skip-previous';
-import { playbackManagerStore } from '@/store';
-
-defineProps<{ size?: string }>();
-
-const playbackManager = playbackManagerStore();
+import { playbackManager } from '@/store/playback-manager';
 </script>

@@ -1,79 +1,84 @@
 <template>
-  <div :class="`swiper-section-${uuid}`" style="width: 100%">
-    <skeleton-home-section v-if="loading" :card-shape="shape" />
-    <v-col v-show="items && items.length > 0" class="swiper-section">
+  <div
+    :class="`swiper-section-${uuid}`"
+    style="width: 100%">
+    <VCol
+      v-show="items && items.length"
+      class="swiper-section">
       <div class="d-flex ma-2">
         <h1
-          class="text-h6 text-sm-h5 font-weight-light header"
+          class="text-h6 text-sm-h5 header"
           :class="{ 'header-white-mode': !theme.current.value.dark }">
           <span class="pl-4">{{ title }}</span>
         </h1>
-        <v-spacer />
-        <v-btn class="swiper-prev" icon variant="plain">
-          <v-icon>
-            <i-mdi-arrow-left />
-          </v-icon>
-        </v-btn>
-        <v-btn class="swiper-next" icon variant="plain">
-          <v-icon>
-            <i-mdi-arrow-right />
-          </v-icon>
-        </v-btn>
+        <VSpacer />
+        <VBtn
+          class="swiper-prev"
+          icon
+          variant="plain">
+          <VIcon>
+            <IMdiArrowLeft />
+          </VIcon>
+        </VBtn>
+        <VBtn
+          class="swiper-next"
+          icon
+          variant="plain">
+          <VIcon>
+            <IMdiArrowRight />
+          </VIcon>
+        </VBtn>
       </div>
 
-      <swiper
+      <Swiper
         :modules="modules"
         class="swiper"
         :initial-slide="0"
         :free-mode="display.mobile.value"
         effect="slide"
         :navigation="navigation"
-        :slides-per-view="slidesPerView"
-        :slides-per-group="slidesPerGroup"
+        :slides-per-view="slides"
+        :slides-per-group="slides"
         :breakpoints="breakpoints"
         a11y>
-        <swiper-slide
+        <SwiperSlide
           v-for="item in items"
           :key="item.Id"
           :virtual-index="item.Id">
-          <card :shape="cardShape" :item="item" margin text overlay link />
-        </swiper-slide>
-      </swiper>
-    </v-col>
+          <ItemCard
+            :item="item"
+            :shape="shape"
+            margin
+            text
+            overlay
+            link />
+        </SwiperSlide>
+      </Swiper>
+    </VCol>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Swiper, SwiperSlide } from 'swiper/vue';
-import { Navigation, FreeMode, A11y, Virtual } from 'swiper';
+import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
 import 'swiper/css';
 import 'swiper/css/a11y';
 import 'swiper/css/free-mode';
-import 'swiper/css/navigation';
 import 'swiper/css/virtual';
-import { ref } from 'vue';
+import { A11y, FreeMode, Navigation, Virtual } from 'swiper/modules';
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import { computed, useId } from 'vue';
 import { useDisplay, useTheme } from 'vuetify';
-import { v4 } from 'uuid';
-import { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
-import { CardShapes, getShapeFromItemType } from '@/utils/items';
+import { CardShapes } from '@/utils/items';
 
+const { title, items, shape } = defineProps<{
+  title: string;
+  items: BaseItemDto[];
+  shape?: CardShapes;
+}>();
+
+const uuid = useId();
 const display = useDisplay();
 const theme = useTheme();
-
-const props = withDefaults(
-  defineProps<{
-    loading?: boolean;
-    title: string;
-    items: BaseItemDto[];
-    shape?: CardShapes;
-  }>(),
-  { loading: false, shape: undefined }
-);
-
-const cardShape = ref<string>(
-  props.shape || getShapeFromItemType(props.items?.[0]?.Type)
-);
-const uuid = v4();
 
 /**
  * Swiper options
@@ -84,25 +89,24 @@ const navigation = {
   prevEl: `.swiper-section-${uuid} .swiper-prev`,
   disabledClass: 'swiper-button-disabled v-btn--disabled'
 };
-const slidesPerView = props.shape === CardShapes.Thumb ? 2 : 3;
-const slidesPerGroup = props.shape === CardShapes.Thumb ? 2 : 3;
-const breakpoints = {
+const slides = computed(() => shape === CardShapes.Thumb ? 2 : 3);
+const breakpoints = computed(() => ({
   600: {
-    slidesPerView: props.shape === CardShapes.Thumb ? 3 : 4,
-    slidesPerGroup: props.shape === CardShapes.Thumb ? 3 : 4
+    slidesPerView: shape === CardShapes.Thumb ? 3 : 4,
+    slidesPerGroup: shape === CardShapes.Thumb ? 3 : 4
   },
   960: {
-    slidesPerView: props.shape === CardShapes.Thumb ? 3 : 6,
-    slidesPerGroup: props.shape === CardShapes.Thumb ? 3 : 6
+    slidesPerView: shape === CardShapes.Thumb ? 3 : 6,
+    slidesPerGroup: shape === CardShapes.Thumb ? 3 : 6
   },
   1904: {
-    slidesPerView: props.shape === CardShapes.Thumb ? 4 : 8,
-    slidesPerGroup: props.shape === CardShapes.Thumb ? 4 : 8
+    slidesPerView: shape === CardShapes.Thumb ? 4 : 8,
+    slidesPerGroup: shape === CardShapes.Thumb ? 4 : 8
   }
-};
+}));
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .swiper-section .header::before {
   content: '';
   position: relative;

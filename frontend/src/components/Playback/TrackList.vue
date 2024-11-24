@@ -1,48 +1,75 @@
 <template>
-  <v-table density="compact" class="track-table user-select-none">
+  <VTable
+    density="compact"
+    class="track-table uno-select-none">
     <thead>
       <tr>
-        <th style="width: 4em" class="pr-0 text-center" scope="col">#</th>
-        <th style="width: 3em" class="pr-0 pl-0" scope="col" />
-        <th scope="col">{{ $t('item.tracklist.title') }}</th>
-        <th style="width: 6.5em" class="text-center" scope="col">
-          <v-icon class="text--primary" size="16">
-            <i-mdi-clock-outline />
-          </v-icon>
+        <th
+          style="width: 4em"
+          class="text-center pr-0"
+          scope="col">
+          #
+        </th>
+        <th
+          style="width: 3em"
+          class="pr-0 pl-0"
+          scope="col" />
+        <th scope="col">
+          {{ $t('title') }}
+        </th>
+        <th
+          style="width: 6.5em"
+          class="text-center"
+          scope="col">
+          <VIcon
+            class="text--primary"
+            size="16">
+            <IMdiClockOutline />
+          </VIcon>
         </th>
       </tr>
     </thead>
     <tbody>
       <template v-for="(tracksOnDisc, discNumber) in tracksPerDisc">
         <tr
-          v-if="Object.keys(tracksPerDisc).length > 1"
+          v-if="hasMultipleDiscs"
           :key="discNumber"
           class="disc-header">
-          <td colspan="4" class="text--secondary">
-            <v-icon class="text--secondary">
-              <i-mdi-disc />
-            </v-icon>
+          <td
+            colspan="4"
+            class="text--secondary">
+            <VIcon class="text--secondary">
+              <IMdiDisc />
+            </VIcon>
             {{ $t('discNumber', { discNumber }) }}
           </td>
         </tr>
-        <template v-for="track in tracksOnDisc" :key="track.Id">
-          <v-hover v-slot="{ isHovering, props: hoverProps }">
+        <template
+          v-for="track in tracksOnDisc"
+          :key="track.Id">
+          <JHover v-slot="{ isHovering }">
             <tr
               :class="{ 'text-primary': isPlaying(track) }"
-              v-bind="hoverProps"
               @dblclick="playTracks(track)">
-              <td style="width: 4em" class="pr-0 text-center">
+              <td
+                style="width: 4em"
+                class="pr-0 text-center">
                 <span v-if="isHovering && !isPlaying(track)">
-                  <v-btn size="small" icon @click="playTracks(track)">
-                    <v-icon>
-                      <i-mdi-play-circle-outline />
-                    </v-icon>
-                  </v-btn>
+                  <VBtn
+                    size="small"
+                    icon
+                    @click="playTracks(track)">
+                    <VIcon>
+                      <IMdiPlayCircleOutline />
+                    </VIcon>
+                  </VBtn>
                 </span>
                 <span v-else>{{ track.IndexNumber }}</span>
               </td>
-              <td style="width: 3em" class="pr-0 pl-0 text-center">
-                <like-button :item="track" />
+              <td
+                style="width: 3em"
+                class="pr-0 pl-0 text-center">
+                <LikeButton :item="track" />
               </td>
               <td>
                 <div class="d-flex align-center">
@@ -50,76 +77,78 @@
                   <div
                     v-if="
                       track &&
-                      track.Artists &&
-                      track.AlbumArtist &&
-                      !track.Artists.includes(track.AlbumArtist)
+                        track.Artists &&
+                        track.AlbumArtist &&
+                        !track.Artists.includes(track.AlbumArtist)
                     "
                     class="ml-3">
                     <template
                       v-for="artist of track.ArtistItems"
                       :key="artist.Id">
-                      <router-link
+                      <RouterLink
                         v-slot="{ navigate }"
                         :to="getItemDetailsLink(artist, 'MusicArtist')"
                         custom>
-                        <span class="link text--secondary" @click="navigate">
+                        <span
+                          class="text--secondary link"
+                          @click="navigate">
                           {{ artist.Name }}
                         </span>
-                      </router-link>
+                      </RouterLink>
                     </template>
                   </div>
-                  <v-spacer />
-                  <item-menu v-show="isHovering" :item="item" />
+                  <VSpacer />
+                  <ItemMenu
+                    v-show="isHovering"
+                    :item="track" />
                 </div>
               </td>
               <td class="text-center">
                 {{ formatTicks(track.RunTimeTicks || 0) }}
               </td>
             </tr>
-          </v-hover>
+          </JHover>
         </template>
       </template>
     </tbody>
-  </v-table>
+  </VTable>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { groupBy } from 'lodash-es';
-import { BaseItemDto, SortOrder } from '@jellyfin/sdk/lib/generated-client';
+import {
+  SortOrder,
+  type BaseItemDto
+} from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
+import { computed } from 'vue';
+import { useBaseItem } from '@/composables/apis';
+import { playbackManager } from '@/store/playback-manager';
 import { getItemDetailsLink } from '@/utils/items';
 import { formatTicks } from '@/utils/time';
-import { playbackManagerStore } from '@/store';
-import { useRemote } from '@/composables';
 
-const props = defineProps<{ item: BaseItemDto }>();
+const { item } = defineProps<{
+  item: BaseItemDto;
+}>();
 
-const playbackManager = playbackManagerStore();
-const remote = useRemote();
-const tracks = ref<BaseItemDto[] | null | undefined>();
+const { data: tracks } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  parentId: item.Id,
+  sortBy: ['SortName'],
+  sortOrder: [SortOrder.Ascending]
+}));
 
-/**
- * Fetch component data
- */
-async function fetch(): Promise<void> {
-  tracks.value = (
-    await remote.sdk.newUserApi(getItemsApi).getItems({
-      userId: remote.auth.currentUserId || '',
-      parentId: props.item.Id,
-      sortBy: ['SortName'],
-      sortOrder: [SortOrder.Ascending]
-    })
-  ).data.Items;
-}
+const tracksPerDisc = computed(() => Object.groupBy(tracks.value, ({ ParentIndexNumber }) => ParentIndexNumber!));
+const hasMultipleDiscs = computed(() => {
+  let loops = 0;
 
-await fetch();
-watch(props, async () => {
-  await fetch();
-});
+  for (const _ in tracksPerDisc.value) {
+    loops++;
 
-const tracksPerDisc = computed(() => {
-  return groupBy(tracks.value, 'ParentIndexNumber');
+    if (loops > 1) {
+      return true;
+    }
+  }
+
+  return false;
 });
 
 /**
@@ -132,18 +161,16 @@ function isPlaying(track: BaseItemDto): boolean {
 /**
  * Play all the tracks from an item
  */
-function playTracks(track: BaseItemDto): void {
-  if (tracks.value) {
-    playbackManager.play({
-      item: props.item,
-      startFromIndex: tracks.value.indexOf(track),
-      initiator: props.item
-    });
-  }
+async function playTracks(track: BaseItemDto): Promise<void> {
+  await playbackManager.play({
+    item: item,
+    startFromIndex: tracks.value.indexOf(track),
+    initiator: item
+  });
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .v-data-table.track-table {
   background-color: transparent;
 }

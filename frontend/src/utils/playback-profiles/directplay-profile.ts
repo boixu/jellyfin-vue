@@ -3,7 +3,7 @@
  */
 
 import {
-  DirectPlayProfile,
+  type DirectPlayProfile,
   DlnaProfileType
 } from '@jellyfin/sdk/lib/generated-client';
 import { getSupportedMP4VideoCodecs } from './helpers/mp4-video-formats';
@@ -21,7 +21,7 @@ import { getSupportedAudioCodecs } from './helpers/audio-formats';
  */
 export function getDirectPlayProfiles(
   videoTestElement: HTMLVideoElement
-): Array<DirectPlayProfile> {
+): DirectPlayProfile[] {
   const DirectPlayProfiles: DirectPlayProfile[] = [];
 
   const webmVideoCodecs = getSupportedWebMVideoCodecs(videoTestElement);
@@ -30,7 +30,7 @@ export function getDirectPlayProfiles(
   const mp4VideoCodecs = getSupportedMP4VideoCodecs(videoTestElement);
   const mp4AudioCodecs = getSupportedMP4AudioCodecs(videoTestElement);
 
-  if (webmVideoCodecs.length > 0) {
+  if (webmVideoCodecs.length) {
     DirectPlayProfiles.push({
       Container: 'webm',
       Type: DlnaProfileType.Video,
@@ -39,7 +39,7 @@ export function getDirectPlayProfiles(
     });
   }
 
-  if (mp4VideoCodecs.length > 0) {
+  if (mp4VideoCodecs.length) {
     DirectPlayProfiles.push({
       Container: 'mp4,m4v',
       Type: DlnaProfileType.Video,
@@ -48,7 +48,7 @@ export function getDirectPlayProfiles(
     });
   }
 
-  if (hasMkvSupport(videoTestElement) && mp4VideoCodecs.length > 0) {
+  if (hasMkvSupport(videoTestElement) && mp4VideoCodecs.length) {
     DirectPlayProfiles.push({
       Container: 'mkv',
       Type: DlnaProfileType.Video,
@@ -71,7 +71,7 @@ export function getDirectPlayProfiles(
     'oga'
   ];
 
-  for (const audioFormat of supportedAudio.filter((format) =>
+  for (const audioFormat of supportedAudio.filter(format =>
     getSupportedAudioCodecs(format)
   )) {
     DirectPlayProfiles.push({
@@ -87,7 +87,7 @@ export function getDirectPlayProfiles(
       });
     }
 
-    // aac also appears in the m4a and m4b container
+    // Aac also appears in the m4a and m4b container
     if (audioFormat === 'aac' || audioFormat === 'alac') {
       DirectPlayProfiles.push(
         {

@@ -1,79 +1,96 @@
 <template>
-  <settings-page page-title="settings.devices.devices">
+  <SettingsPage>
+    <template #title>
+      {{ t('devices') }}
+    </template>
     <template #actions>
-      <v-btn
-        v-if="devices.length > 0"
+      <VBtn
+        v-if="devices.length"
         color="error"
         variant="elevated"
         class="ml-a"
         :loading="loading"
         @click="deleteAllDevices">
-        {{ t('settings.devices.deleteAll') }}
-      </v-btn>
-      <v-btn
+        {{ t('deleteAll') }}
+      </VBtn>
+      <VBtn
         variant="elevated"
         href="https://jellyfin.org/docs/general/server/devices.html"
         rel="noreferrer noopener"
         target="_blank">
-        {{ t('settings.help') }}
-      </v-btn>
+        {{ t('help') }}
+      </VBtn>
     </template>
     <template #content>
-      <v-col>
-        <v-table>
+      <VCol>
+        <VTable>
           <thead>
             <tr>
-              <th v-for="{ text, value } in headers" :id="value" :key="value">
+              <th
+                v-for="{ text, value } in headers"
+                :id="value"
+                :key="value">
                 {{ text }}
               </th>
-              <th scope="col"><!--for delete button--></th>
+              <th scope="col">
+                <!--for delete button-->
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="device in devices" :key="device.Id ?? undefined">
-              <td v-for="{ value } in headers" :key="value">
+            <tr
+              v-for="device in devices"
+              :key="device.Id ?? undefined">
+              <td
+                v-for="{ value } in headers"
+                :key="value">
                 {{
                   value !== 'DateLastActivity'
                     ? device[value]
                     : useDateFns(
-                        formatRelative,
-                        parseJSON(device[value] ?? 'unknown'),
-                        new Date()
-                      ).value
+                      formatRelative,
+                      parseJSON(device[value] ?? 'unknown'),
+                      new Date()
+                    )
                 }}
               </td>
               <td>
-                <v-btn
+                <VBtn
                   color="error"
                   :disabled="loading"
                   @click="confirmDelete = device.Id ?? undefined">
-                  {{ t('settings.devices.delete') }}
-                </v-btn>
+                  {{ t('delete') }}
+                </VBtn>
               </td>
             </tr>
           </tbody>
-        </v-table>
-      </v-col>
-      <v-dialog
+        </VTable>
+      </VCol>
+      <VDialog
         width="auto"
         :model-value="confirmDelete !== undefined"
         @update:model-value="confirmDelete = undefined">
-        <v-card>
-          <v-card-text>
-            {{ t('settings.devices.deleteConfirm') }}
-          </v-card-text>
-          <v-card-actions>
-            <v-btn color="primary" :loading="loading" @click="confirmDeletion">
+        <VCard>
+          <VCardText>
+            {{ t('deleteConfirm') }}
+          </VCardText>
+          <VCardActions>
+            <VBtn
+              color="primary"
+              :loading="loading"
+              @click="confirmDeletion">
               {{ t('confirm') }}
-            </v-btn>
-            <v-btn :loading="loading" @click="confirmDelete = undefined">
+            </VBtn>
+            <VBtn
+              :loading="loading"
+              @click="confirmDelete = undefined">
               {{ t('cancel') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+            </VBtn>
+          </VCardActions>
+        </VCard>
+      </VDialog>
     </template>
-  </settings-page>
+  </SettingsPage>
 </template>
 
 <route lang="yaml">
@@ -82,15 +99,16 @@ meta:
 </route>
 
 <script setup lang="ts">
-import { parseJSON, formatRelative } from 'date-fns';
+import type { DeviceInfo } from '@jellyfin/sdk/lib/generated-client';
+import { getDevicesApi } from '@jellyfin/sdk/lib/utils/api/devices-api';
+import { formatRelative, parseJSON } from 'date-fns';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { DeviceInfo } from '@jellyfin/sdk/lib/generated-client';
-import { getDevicesApi } from '@jellyfin/sdk/lib/utils/api/devices-api';
-import { useDateFns, useRemote, useSnackbar } from '@/composables';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { useDateFns } from '@/composables/use-datefns';
 
 const { t } = useI18n();
-const remote = useRemote();
 
 const devices = ref(
   (await remote.sdk.newUserApi(getDevicesApi).getDevices()).data.Items ?? []
@@ -102,14 +120,14 @@ const confirmDelete = ref<string>();
 
 const headers = computed<{ text: string; value: keyof DeviceInfo }[]>(() => [
   {
-    text: t('settings.devices.userName'),
+    text: t('userName'),
     value: 'LastUserName'
   },
-  { text: t('settings.devices.deviceName'), value: 'Name' },
-  { text: t('settings.devices.appName'), value: 'AppName' },
-  { text: t('settings.devices.appVersion'), value: 'AppVersion' },
+  { text: t('deviceName'), value: 'Name' },
+  { text: t('appName'), value: 'AppName' },
+  { text: t('appVersion'), value: 'AppVersion' },
   {
-    text: t('settings.devices.lastActive'),
+    text: t('lastActive'),
     value: 'DateLastActivity'
   }
 ]);
@@ -122,22 +140,20 @@ async function deleteAllDevices(): Promise<void> {
 
   try {
     for (const device of devices.value) {
-      if (!device.Id || remote.sdk.deviceInfo.id === device.Id) {
-        continue;
+      if (device.Id || remote.sdk.deviceInfo.id === device.Id) {
+        await remote.sdk
+          .newUserApi(getDevicesApi)
+          .deleteDevice({ id: device.Id });
       }
-
-      await remote.sdk
-        .newUserApi(getDevicesApi)
-        .deleteDevice({ id: device.Id });
     }
 
-    useSnackbar(t('settings.devices.deleteAllDevicesSuccess'), 'success');
+    useSnackbar(t('deleteAllDevicesSuccess'), 'success');
 
-    devices.value =
-      (await remote.sdk.newUserApi(getDevicesApi).getDevices()).data.Items ??
-      [];
+    devices.value
+      = (await remote.sdk.newUserApi(getDevicesApi).getDevices()).data.Items
+      ?? [];
   } catch (error) {
-    useSnackbar(t('settings.devices.deleteAllDevicesError'), 'error');
+    useSnackbar(t('deleteAllDevicesError'), 'error');
     console.error(error);
   } finally {
     loading.value = false;
@@ -153,11 +169,11 @@ async function deleteDevice(deviceId: string): Promise<void> {
   try {
     await remote.sdk.newUserApi(getDevicesApi).deleteDevice({ id: deviceId });
 
-    useSnackbar(t('settings.devices.deleteDeviceSuccess'), 'success');
+    useSnackbar(t('deleteDeviceSuccess'), 'success');
 
-    devices.value =
-      (await remote.sdk.newUserApi(getDevicesApi).getDevices()).data.Items ??
-      [];
+    devices.value
+      = (await remote.sdk.newUserApi(getDevicesApi).getDevices()).data.Items
+      ?? [];
   } catch (error) {
     useSnackbar(t('deleteDeviceError'), 'error');
     console.error(error);

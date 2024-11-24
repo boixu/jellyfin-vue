@@ -1,71 +1,66 @@
 <template>
-  <v-navigation-drawer
+  <VNavigationDrawer
     v-model="drawer"
     :temporary="$vuetify.display.mobile"
     :permanent="!$vuetify.display.mobile"
-    :order="props.order"
+    :order="order"
     floating
     class="pa-s"
     :color="
       transparentLayout && !$vuetify.display.mobile ? 'transparent' : undefined
     ">
-    <v-list nav>
-      <v-list-item
+    <VList nav>
+      <VListItem
         v-for="item in items"
         :key="item.to"
         :to="item.to"
         exact
         :prepend-icon="item.icon"
         :title="item.title" />
-      <v-list-subheader>{{ $t('libraries') }}</v-list-subheader>
-      <v-list-item
-        v-for="library in drawerItems"
-        :key="library.to"
-        :to="library.to"
-        exact
-        :prepend-icon="library.icon"
-        :title="library.title" />
-    </v-list>
+      <VListSubheader>{{ $t('libraries') }}</VListSubheader>
+      <template v-for="library in drawerItems">
+        <VListItem
+          v-if="library"
+          :key="library.to"
+          :to="library.to"
+          exact
+          :prepend-icon="library.icon"
+          :title="library.title" />
+      </template>
+    </VList>
     <template #append>
-      <v-list nav>
-        <commit-link />
-      </v-list>
+      <VList nav>
+        <CommitLink />
+      </VList>
     </template>
-  </v-navigation-drawer>
+  </VNavigationDrawer>
 </template>
 
 <script setup lang="ts">
-import { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
-import { useRoute } from 'vue-router';
-import { useI18n } from 'vue-i18n';
-import { computed, inject, Ref } from 'vue';
 import IMdiHome from 'virtual:icons/mdi/home';
-import { userLibrariesStore } from '@/store';
-import { getLibraryIcon } from '@/utils/items';
+import { computed, inject, type Ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import type { RouteNamedMap } from 'vue-router/auto-routes';
+import type { getLibraryIcon } from '@/utils/items';
+import { transparencyEffects } from '@/store';
+import { JView_isRouting } from '@/store/keys';
 
-const route = useRoute();
-const userLibraries = userLibrariesStore();
-const { t } = useI18n();
+export interface DrawerItem {
+  icon: ReturnType<typeof getLibraryIcon>;
+  title: string;
+  to: keyof RouteNamedMap;
+}
 
-const props = defineProps<{
+const { order, drawerItems } = defineProps<{
   order?: number;
+  drawerItems: DrawerItem[];
 }>();
 
+const { t } = useI18n();
+
 const drawer = inject<Ref<boolean>>('NavigationDrawer');
-
-const transparentLayout = computed(() => {
-  return route.meta.transparentLayout || false;
-});
-
-const drawerItems = computed(() => {
-  return userLibraries.libraries.map((view: BaseItemDto) => {
-    return {
-      icon: getLibraryIcon(view.CollectionType),
-      title: view.Name || '',
-      to: `/library/${view.Id}`
-    };
-  });
-});
+const isRouting = inject(JView_isRouting);
+const transparentLayout = computed(previous => isRouting?.value ? previous : transparencyEffects.value);
 
 const items = [
   {

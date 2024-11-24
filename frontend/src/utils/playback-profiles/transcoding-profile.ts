@@ -5,7 +5,7 @@
 import {
   DlnaProfileType,
   EncodingContext,
-  TranscodingProfile
+  type TranscodingProfile
 } from '@jellyfin/sdk/lib/generated-client';
 import { getSupportedAudioCodecs } from './helpers/audio-formats';
 import { getSupportedMP4AudioCodecs } from './helpers/mp4-audio-formats';
@@ -37,14 +37,14 @@ import {
  */
 export function getTranscodingProfiles(
   videoTestElement: HTMLVideoElement
-): Array<TranscodingProfile> {
+): TranscodingProfile[] {
   const TranscodingProfiles: TranscodingProfile[] = [];
   const physicalAudioChannels = isTv() ? 6 : 2;
 
   const hlsBreakOnNonKeyFrames = !!(
-    isApple() ||
-    (isEdge() && !isChromiumBased()) ||
-    !canPlayNativeHls(videoTestElement)
+    isApple()
+    || (isEdge() && !isChromiumBased())
+    || !canPlayNativeHls(videoTestElement)
   );
 
   const mp4AudioCodecs = getSupportedMP4AudioCodecs(videoTestElement);
@@ -53,11 +53,11 @@ export function getTranscodingProfiles(
 
   if (canPlayHls) {
     TranscodingProfiles.push({
-      // hlsjs, edge, and android all seem to require ts container
+      // Hlsjs, edge, and android all seem to require ts container
       Container:
-        !canPlayNativeHls(videoTestElement) ||
-        (isEdge() && !isChromiumBased()) ||
-        isAndroid()
+        !canPlayNativeHls(videoTestElement)
+        || (isEdge() && !isChromiumBased())
+        || isAndroid()
           ? 'ts'
           : 'aac',
       Type: DlnaProfileType.Audio,
@@ -70,7 +70,7 @@ export function getTranscodingProfiles(
     });
   }
 
-  for (const audioFormat of ['aac', 'mp3', 'opus', 'wav'].filter((format) =>
+  for (const audioFormat of ['aac', 'mp3', 'opus', 'wav'].filter(format =>
     getSupportedAudioCodecs(format)
   )) {
     TranscodingProfiles.push({
@@ -87,9 +87,9 @@ export function getTranscodingProfiles(
   const hlsInTsAudioCodecs = getSupportedTsAudioCodecs(videoTestElement);
 
   if (
-    canPlayHls &&
-    hlsInTsVideoCodecs.length > 0 &&
-    hlsInTsAudioCodecs.length > 0
+    canPlayHls
+    && hlsInTsVideoCodecs.length
+    && hlsInTsAudioCodecs.length
   ) {
     TranscodingProfiles.push({
       Container: 'ts',
@@ -124,8 +124,10 @@ export function getTranscodingProfiles(
       VideoCodec: 'vpx',
       Context: EncodingContext.Streaming,
       Protocol: 'http',
-      // If audio transcoding is needed, limit channels to number of physical audio channels
-      // Trying to transcode to 5 channels when there are only 2 speakers generally does not sound good
+      /*
+       * If audio transcoding is needed, limit channels to number of physical audio channels
+       * Trying to transcode to 5 channels when there are only 2 speakers generally does not sound good
+       */
       MaxAudioChannels: physicalAudioChannels.toString()
     });
   }

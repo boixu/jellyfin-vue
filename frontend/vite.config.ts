@@ -1,165 +1,128 @@
-/* eslint-disable import/no-nodejs-modules */
-import path, { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-/* eslint-enable import/no-nodejs-modules */
-import { defineConfig, UserConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
-import Pages from 'vite-plugin-pages';
-import Layouts from 'vite-plugin-vue-layouts';
-import Icons from 'unplugin-icons/vite';
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite';
+import Virtual from '@rollup/plugin-virtual';
+import VueDevTools from 'vite-plugin-vue-devtools';
+import Vue from '@vitejs/plugin-vue';
+import browserslist from 'browserslist';
+import { browserslistToTargets } from 'lightningcss';
 import IconsResolver from 'unplugin-icons/resolver';
-import Components from 'unplugin-vue-components/vite';
-import { getFileBasedRouteName } from 'unplugin-vue-router';
-import VueRouter from 'unplugin-vue-router/vite';
+import Icons from 'unplugin-icons/vite';
 import {
-  VueUseComponentsResolver,
   Vuetify3Resolver,
+  VueUseComponentsResolver,
   VueUseDirectiveResolver
 } from 'unplugin-vue-components/resolvers';
-import visualizer from 'rollup-plugin-visualizer';
-import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite';
-import autoprefixer from 'autoprefixer';
+import Components from 'unplugin-vue-components/vite';
+import UnoCSS from 'unocss/vite';
+import VueRouter from 'unplugin-vue-router/vite';
+import { defineConfig } from 'vite';
+/**
+ * TODO: Replace with @jellyfin-vue/vite-plugins after https://github.com/vitejs/vite/issues/5370
+ * is fixed
+ */
+import { BundleAnalysis, BundleChunking, BundleSizeReport } from '../packages/vite-plugins';
+import { entrypoints, localeFilesFolder, srcRoot } from './scripts/paths';
+import virtualModules from './scripts/virtual-modules';
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }): UserConfig => {
-  const config: UserConfig = {
-    server: {
-      host: '0.0.0.0',
-      port: 3000
-    },
-    define: {
-      __COMMIT_HASH__: JSON.stringify(process.env.COMMIT_HASH || '')
-    },
-    plugins: [
-      /**
-       * We're mixing both vite-plugin-pages and unplugin-vue-router because
-       * there are issues with layouts and unplugin-vue-router is experimental:
-       * https://github.com/posva/unplugin-vue-router/issues/29#issuecomment-1263134455
-       *
-       * At runtime we use vite-plugin-pages, while unplugin-vue-router is just
-       * for types at development
-       */
-      Pages({
-        routeStyle: 'nuxt',
-        importMode: 'sync',
-        moduleId: 'virtual:generated-pages'
-      }),
-      VueRouter({
-        dts: './types/global/routes.d.ts',
-        /**
-         * unplugin-vue-router generates the route names differently
-         * from vite-plugin-pages.
-         *
-         * We overwrite the name generation function so they match and TypeScript types
-         * matches.
-         */
-        getRouteName: (node): string => {
-          const name = getFileBasedRouteName(node);
-
-          return name === '/'
-            ? 'index'
-            : name
-                /**
-                 * Remove first and trailing / character
-                 */
-                .replace(/^./, '')
-                .replace(/\/$/, '')
-                /**
-                 * Routes with params have its types generated as
-                 * _itemId, while vite-plugin-pages just use hyphens for everything
-                 */
-                .replace('/', '-')
-                .replace('_', '');
-        }
-      }),
-      vue(),
-      Layouts({
-        importMode: () => 'sync',
-        defaultLayout: 'default'
-      }),
-      // This plugin allows to autoimport vue components
-      Components({
-        dts: './types/global/components.d.ts',
-        /**
-         * The icons resolver finds icons components from 'unplugin-icons' using this convenction:
-         * {prefix}-{collection}-{icon} e.g. <i-mdi-thumb-up />
-         */
-        resolvers: [
-          IconsResolver(),
-          VueUseComponentsResolver(),
-          Vuetify3Resolver(),
-          VueUseDirectiveResolver()
-        ]
-      }),
-      /**
-       * This plugin allows to use all icons from Iconify as vue components
-       * See: https://github.com/antfu/unplugin-icons
-       */
-      Icons({
-        compiler: 'vue3'
-      }),
-      VueI18nPlugin({
-        runtimeOnly: true,
-        compositionOnly: true,
-        fullInstall: false,
-        forceStringify: true,
-        include: resolve(
-          dirname(fileURLToPath(import.meta.url)),
-          './locales/**'
-        )
-      })
-    ],
-    build: {
-      /**
-       * See main.ts for an explanation of this target
-       */
-      target: 'es2022',
-      modulePreload: false,
-      reportCompressedSize: false,
-      rollupOptions: {
-        output: {
-          assetFileNames: (assetInfo) => {
-            if (assetInfo.name?.endsWith('jassub-worker.wasm')) {
-              return 'assets/jassub-worker.wasm';
-            }
-
-            return 'assets/[name]-[hash][extname]';
-          },
-          plugins: [
-            mode === 'analyze'
-              ? // rollup-plugin-visualizer
-                // https://github.com/btd/rollup-plugin-visualizer
-                visualizer({
-                  open: true,
-                  filename: 'dist/stats.html',
-                  gzipSize: true,
-                  brotliSize: true
-                })
-              : undefined
-          ]
+export default defineConfig({
+  appType: 'spa',
+  base: './',
+  cacheDir: '../node_modules/.cache/vite',
+  plugins: [
+    BundleAnalysis(),
+    BundleChunking(),
+    BundleSizeReport(),
+    Virtual(virtualModules),
+    VueRouter({
+      dts: './types/global/routes.d.ts',
+      importMode: 'sync',
+      routeBlockLang: 'yaml'
+    }),
+    Vue({
+      template: {
+        transformAssetUrls: {
+          img: []
         }
       }
-    },
-    css: {
-      postcss: {
-        plugins: [autoprefixer()]
-      }
-    },
-    preview: {
-      port: 3000,
-      strictPort: true,
-      host: '0.0.0.0',
-      cors: true
-    },
-    resolve: {
-      alias: {
-        '@/': `${path.resolve(
-          path.dirname(fileURLToPath(import.meta.url)),
-          './src'
-        )}/`
+    }),
+    // This plugin allows to autoimport Vue components
+    Components({
+      dts: './types/global/components.d.ts',
+      /**
+       * The icons resolver finds icons components from 'unplugin-icons' using this convenction:
+       * {prefix}-{collection}-{icon} e.g. <i-mdi-thumb-up />
+       */
+      resolvers: [
+        IconsResolver(),
+        VueUseComponentsResolver(),
+        Vuetify3Resolver(),
+        VueUseDirectiveResolver()
+      ]
+    }),
+    /**
+     * This plugin allows to use all icons from Iconify as vue components
+     * See: https://github.com/antfu/unplugin-icons
+     */
+    Icons({
+      compiler: 'vue3'
+    }),
+    VueI18nPlugin({
+      runtimeOnly: true,
+      compositionOnly: true,
+      fullInstall: false,
+      forceStringify: true,
+      include: localeFilesFolder,
+      dropMessageCompiler: true
+    }),
+    UnoCSS(),
+    VueDevTools()
+  ],
+  build: {
+    /**
+     * See main.ts for an explanation of this target
+     */
+    target: 'esnext',
+    /**
+     * Disable chunk size warnings
+     */
+    cssCodeSplit: true,
+    cssMinify: 'lightningcss',
+    modulePreload: false,
+    reportCompressedSize: false,
+    rollupOptions: {
+      input: {
+        splashscreen: entrypoints.splashscreen,
+        main: entrypoints.main,
+        index: entrypoints.index
+      },
+      output: {
+        validate: true
       }
     }
-  };
-
-  return config;
+  },
+  css: {
+    lightningcss: {
+      nonStandard: {
+        deepSelectorCombinator: true
+      },
+      targets: browserslistToTargets(browserslist())
+    }
+  },
+  preview: {
+    port: 3000,
+    strictPort: true,
+    host: '0.0.0.0',
+    cors: true
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 3000
+  },
+  resolve: {
+    alias: {
+      '@/': srcRoot
+    }
+  },
+  worker: {
+    format: 'es'
+  }
 });

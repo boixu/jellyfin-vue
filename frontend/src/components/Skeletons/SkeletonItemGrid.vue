@@ -1,31 +1,31 @@
 <template>
-  <v-row>
-    <v-col cols="12" :class="useResponsiveClasses('card-grid-container')">
-      <skeleton-card
+  <VRow>
+    <VCol
+      cols="12"
+      :class="useResponsiveClasses('card-grid-container')">
+      <SkeletonCard
         v-for="n in 24"
         :key="n"
         :card-shape="skeletonCardShape"
         text />
-    </v-col>
-  </v-row>
+    </VCol>
+  </VRow>
 </template>
 
 <script setup lang="ts">
 import { BaseItemKind } from '@jellyfin/sdk/lib/generated-client';
 import { computed } from 'vue';
-import { CardShapes, getShapeFromItemType } from '@/utils/items';
-import { useResponsiveClasses } from '@/composables';
+import { useResponsiveClasses } from '@/composables/use-responsive-classes';
+import { getShapeFromItemType } from '@/utils/items';
 
-const props = withDefaults(defineProps<{ viewType?: BaseItemKind }>(), {
-  viewType: 'Movie'
-});
+const { viewType = BaseItemKind.Movie } = defineProps<{ viewType?: BaseItemKind }>();
 
 const skeletonCardShape = computed(() => {
-  return getShapeFromItemType(props.viewType) || CardShapes.Portrait;
+  return getShapeFromItemType(viewType);
 });
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .card-grid-container {
   display: grid;
 }

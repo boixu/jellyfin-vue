@@ -1,56 +1,64 @@
 <template>
-  <v-dialog
+  <VDialog
     :model-value="dialog"
     :fullscreen="$vuetify.display.mobile"
     content-class="image-search-dialog-content"
     @update:model-value="(value: boolean) => emit('update:dialog', value)">
-    <v-card height="100%" class="image-search-card">
-      <v-card-title>{{ t('search.name') }}</v-card-title>
-      <v-divider />
-      <v-row align="center" class="mx-16 my-4">
-        <v-select
+    <VCard
+      height="100%"
+      class="image-search-card">
+      <VCardTitle>{{ t('search') }}</VCardTitle>
+      <VDivider />
+      <VRow
+        align="center"
+        class="my-4 mx-16">
+        <VSelect
           v-model="source"
           class="mx-4"
           :items="sources"
           :disabled="loading"
-          :label="t('metadata.source')"
-          :placeholder="t('metadata.sourceAll')"
-          persistent-placeholder
+          :label="t('source')"
+          :placeholder="t('all')"
           variant="outlined"
           hide-details
-          clearable />
-        <v-select
+          clearable
+          persistent-placeholder />
+        <VSelect
           v-model="type"
           class="mx-4"
           :items="types"
           item-title="text"
           item-value="value"
           :disabled="loading"
-          :label="t('metadata.type')"
+          :label="t('type')"
           variant="outlined"
           hide-details />
-        <v-checkbox
+        <VCheckbox
           v-model="allLanguages"
-          class="mt-0 mx-4"
+          class="mx-4 mt-0"
           :label="t('allLanguages')"
           :disabled="loading"
           hide-details />
-      </v-row>
-      <v-divider />
-      <v-progress-circular
+      </VRow>
+      <VDivider />
+      <VProgressCircular
         v-if="loading"
         :size="70"
         :width="7"
         color="primary"
         indeterminate
         class="loading-bar" />
-      <v-card v-else-if="images.length === 0" class="mx-auto">
-        <v-card-title>
+      <VCard
+        v-else-if="images.length === 0"
+        class="mx-auto">
+        <VCardTitle>
           {{ t('noImagesFound') }}
-        </v-card-title>
-      </v-card>
-      <v-row v-else class="image-results">
-        <v-col
+        </VCardTitle>
+      </VCard>
+      <VRow
+        v-else
+        class="image-results">
+        <VCol
           v-for="(item, i) in images"
           :key="`${item.Type}-${i}`"
           xl="1"
@@ -58,75 +66,80 @@
           md="4"
           sm="6"
           cols="12">
-          <v-card class="ma-2">
-            <v-img
+          <VCard class="ma-2">
+            <JImg
               v-if="item.Url"
-              :src="item.Url"
-              :aspect-ratio="getContainerAspectRatioForImageType(item.Type)" />
+              :alt="$t('imageSearchResult')"
+              :src="item.Url" />
             <div class="text-center text-truncate text-subtitle-1 mt-2">
               {{ item.ProviderName }}
             </div>
-            <div class="text-center text-body-2 text-grey-darken-2 info-box">
-              <template v-if="item.Width && item.Height">
-                {{ item.Width }} &times; {{ item.Height }}
-                <template v-if="item.Language">
-                  &middot; {{ item.Language }}
-                </template>
-              </template>
+            <div
+              v-if="item.Width && item.Height"
+              class="text-center text-body-2 text-grey-darken-2 info-box">
+              {{ t('dimensions', { width: item.Width, height: item.Height }) }}
+            </div>
+            <div
+              v-if="item.Language"
+              class="text-center text-body-2 text-grey-darken-2 info-box">
+              <b>{{ `${t("language")}: ` }}</b>{{ getLocaleName(item.Language) }}
+            </div>
+            <div
+              v-if="item.CommunityRating"
+              class="text-center text-body-2 text-grey-darken-2 info-box">
+              <b>{{ `${t("communityRating")}: ` }}</b>{{ item.CommunityRating.toFixed(1) }}
             </div>
             <div class="text-center text-body-2 text-grey-darken-2 info-box">
-              <template v-if="item.CommunityRating">
-                {{ item.CommunityRating.toFixed(1) }}
-                <template v-if="item.VoteCount">
-                  &middot; {{ item.VoteCount }} votes
-                </template>
+              <template v-if="item.VoteCount">
+                {{ t('imageVotes', { votes: item.VoteCount }) }}
               </template>
             </div>
-            <v-spacer />
-            <v-card-actions class="justify-center">
-              <v-btn icon :disabled="loading" @click="onDownload(item)">
-                <v-icon>
-                  <i-mdi-cloud-download />
-                </v-icon>
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-card>
-  </v-dialog>
+            <VSpacer />
+            <VCardActions class="justify-center">
+              <VBtn
+                icon
+                :disabled="loading"
+                @click="onDownload(item)">
+                <VIcon>
+                  <IMdiCloudDownload />
+                </VIcon>
+              </VBtn>
+            </VCardActions>
+          </VCard>
+        </VCol>
+      </VRow>
+    </VCard>
+  </VDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
 import {
-  ImageProviderInfo,
-  RemoteImageInfo,
+  type BaseItemDto,
+  type ImageProviderInfo,
   ImageType,
-  BaseItemDto
+  type RemoteImageInfo
 } from '@jellyfin/sdk/lib/generated-client';
 import { getRemoteImageApi } from '@jellyfin/sdk/lib/utils/api/remote-image-api';
-import { getContainerAspectRatioForImageType } from '@/utils/images';
-import { useRemote } from '@/composables';
+import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { getLocaleName } from '@/utils/i18n';
+import { remote } from '@/plugins/remote';
 
-const props = defineProps<{
+const { metadata, dialog } = defineProps<{
   metadata: BaseItemDto;
   dialog: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:dialog', isOpen: boolean): void;
-  (e: 'download-success', someting: boolean): void;
+  'update:dialog': [isOpen: boolean];
+  'download-success': [someting: boolean];
 }>();
 
 const { t } = useI18n();
-const remote = useRemote();
 
 const providers = ref<ImageProviderInfo[]>([]);
 const type = ref<ImageType>(ImageType.Primary);
-// eslint-disable-next-line unicorn/no-null -- the v-select component uses null to represent no value
-const source = ref<ImageProviderInfo['Name'] | null>(null);
+const source = ref<ImageProviderInfo['Name']>();
 const allLanguages = ref(false);
 const images = ref<RemoteImageInfo[]>([]);
 const loading = ref(false);
@@ -134,72 +147,71 @@ const loading = ref(false);
 const types = computed(() => [
   {
     value: ImageType.Primary,
-    text: t('imageType.primary')
+    text: t('primary')
   },
   {
     value: ImageType.Art,
-    text: t('imageType.art')
+    text: t('art')
   },
   {
     value: ImageType.Backdrop,
-    text: t('imageType.backdrop')
+    text: t('backdrop')
   },
   {
     value: ImageType.Banner,
-    text: t('imageType.banner')
+    text: t('banner')
   },
   {
     value: ImageType.Box,
-    text: t('imageType.box')
+    text: t('box')
   },
   {
     value: ImageType.BoxRear,
-    text: t('imageType.boxRear')
+    text: t('boxRear')
   },
   {
     value: ImageType.Disc,
-    text: t('imageType.disc')
+    text: t('disc')
   },
   {
     value: ImageType.Logo,
-    text: t('imageType.logo')
+    text: t('logo')
   },
   {
     value: ImageType.Menu,
-    text: t('imageType.menu')
+    text: t('menu')
   },
   {
     value: ImageType.Screenshot,
-    text: t('imageType.screenshot')
+    text: t('screenshot')
   },
   {
     value: ImageType.Thumb,
-    text: t('imageType.thumb')
+    text: t('thumb')
   }
 ]);
 
 const sources = computed(() =>
   providers.value
     .filter(
-      (provider) =>
-        provider.Name &&
-        provider.SupportedImages &&
-        provider.SupportedImages.includes(type.value)
+      provider =>
+        provider.Name
+        && provider.SupportedImages?.includes(type.value)
     )
-    .map((provider) => provider.Name ?? '')
+    .map(provider => provider.Name ?? '')
 );
 
 /**
  * Returns a list of image providers for the current item
  */
 async function getRemoteImageProviders(): Promise<void> {
-  if (!props.metadata.Id) {
+  if (!metadata.Id) {
     return;
   }
 
   providers.value = (
     await remote.sdk.newUserApi(getRemoteImageApi).getRemoteImageProviders({
-      itemId: props.metadata.Id
+      itemId: metadata.Id
     })
   ).data;
 }
@@ -208,15 +220,15 @@ async function getRemoteImageProviders(): Promise<void> {
  * Fetches the image information for the currently selected item given the filters
  */
 async function getImages(): Promise<void> {
-  if (!props.metadata.Id) {
+  if (!metadata.Id) {
     return;
   }
 
   loading.value = true;
-  images.value =
-    (
+  images.value
+    = (
       await remote.sdk.newUserApi(getRemoteImageApi).getRemoteImages({
-        itemId: props.metadata.Id,
+        itemId: metadata.Id,
         type: type.value,
         providerName: source.value ?? undefined,
         includeAllLanguages: allLanguages.value
@@ -230,13 +242,13 @@ async function getImages(): Promise<void> {
  * Handles downloading an image given the image info
  */
 async function onDownload(item: RemoteImageInfo): Promise<void> {
-  if (!item.Type || !item.Url || !props.metadata.Id) {
+  if (!item.Type || !item.Url || !metadata.Id) {
     return;
   }
 
   loading.value = true;
   await remote.sdk.newUserApi(getRemoteImageApi).downloadRemoteImage({
-    itemId: props.metadata.Id,
+    itemId: metadata.Id,
     type: item.Type,
     imageUrl: item.Url
   });
@@ -252,19 +264,18 @@ async function onDownload(item: RemoteImageInfo): Promise<void> {
 function reset(): void {
   providers.value = [];
   type.value = ImageType.Primary;
-  // eslint-disable-next-line unicorn/no-null -- the v-select component uses null to represent no value
-  source.value = null;
+  source.value = undefined;
   allLanguages.value = false;
   images.value = [];
 }
 
 watch([type, source, allLanguages], getImages);
 watch(
-  () => props.dialog,
-  (dialog) => {
+  () => dialog,
+  async (dialog) => {
     if (dialog) {
-      getRemoteImageProviders();
-      getImages();
+      await getRemoteImageProviders();
+      await getImages();
     } else {
       reset();
     }
@@ -272,16 +283,12 @@ watch(
 );
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .loading-bar {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-}
-
-.card-grid-container {
-  display: grid;
 }
 
 .image-results {

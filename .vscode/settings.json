@@ -1,19 +1,59 @@
 {
-  "editor.formatOnSave": true,
-  "i18n-ally.keystyle": "nested",
-  "i18n-ally.sortKeys": true,
-  "i18n-ally.sourceLanguage": "en-US",
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "i18n-ally.localesPaths": ["frontend/locales"],
-  "i18n-ally.enabledFrameworks": ["vue"],
+  "editor.formatOnSave": true, 
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "never"
+  },
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
-  "eslint.validate": ["vue"],
-  "eslint.workingDirectories": [{ "mode": "auto" }],
-  "emmet.includeLanguages": {
-    "vue": "html"
+  "[typescript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
-  "volar.autoCompleteRefs": true,
-  "volar.vueserver.fullCompletionList": true
+  "[vue]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+  },
+  "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+  "i18n-ally.keystyle": "flat",
+  "i18n-ally.sortKeys": true,
+  "i18n-ally.sourceLanguage": "en",
+  "i18n-ally.localesPaths": [
+    "frontend/locales"
+  ],
+  "i18n-ally.enabledFrameworks": [
+    "vue"
+  ],
+  "eslint.validate": [
+    "vue",
+    "javascript",
+    "typescript"
+  ],
+  "eslint.options": { 
+    "flags": ["unstable_ts_config"] 
+  },
+  "eslint.format.enable": true,
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "vue.server.hybridMode": true,
+  "vue.autoInsert.dotValue": true,
+  "vue.inlayHints.missingProps": true,
+  "vue.complete.casing.props": "kebab",
+  "vue.complete.casing.tags": "pascal",
+  "vue.format.script.initialIndent": true,
+  "vue.format.style.initialIndent": true,
+  "vue.inlayHints.inlineHandlerLeading": true,
+  "vue.inlayHints.vBindShorthand": true,
+  "vue.inlayHints.optionsWrapper": true,
+  "vue.inlayHints.destructuredProps": true,
+  "sonarlint.output.showAnalyzerLogs": true,
+  "sonarlint.output.showVerboseLogs": true,
+  "sonarlint.connectedMode.project": {
+    "connectionId": "jellyfin-vue",
+    "projectKey": "jellyfin_jellyfin-vue"
+  },
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true
 }

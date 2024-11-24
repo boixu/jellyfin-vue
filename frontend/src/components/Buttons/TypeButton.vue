@@ -1,48 +1,42 @@
 <template>
-  <v-btn :icon="$vuetify.display.smAndDown" class="my-2">
+  <VBtn
+    :icon="$vuetify.display.smAndDown"
+    class="my-2">
     {{
       $vuetify.display.smAndDown || items.length === 0
         ? undefined
-        : model.length === 0
-        ? items[0].title
-        : items.find((i) => i.value == model[0])?.title
+        : innerModel.length === 0
+          ? items[0].title
+          : items.find((i) => i.value === innerModel[0])?.title
     }}
-    <v-icon :end="!$vuetify.display.smAndDown">
-      <i-mdi-menu-down v-if="!$vuetify.display.smAndDown" />
-      <i-mdi-eye v-else />
-    </v-icon>
-    <v-menu :disabled="disabled">
-      <v-list
-        v-model:selected="model"
+    <VIcon :end="!$vuetify.display.smAndDown">
+      <IMdiMenuDown v-if="!$vuetify.display.smAndDown" />
+      <IMdiEye v-else />
+    </VIcon>
+    <VMenu>
+      <VList
         :items="items"
-        @update:selected="emit('change', model[0])" />
-    </v-menu>
-  </v-btn>
+        @update:selected="model = innerModel[0]" />
+    </VMenu>
+  </VBtn>
 </template>
 
 <script setup lang="ts">
-import { BaseItemKind } from '@jellyfin/sdk/lib/generated-client';
+import type { BaseItemDto, BaseItemKind } from '@jellyfin/sdk/lib/generated-client';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-const props = withDefaults(
-  defineProps<{
-    /** CollectionType */
-    type: string | undefined;
-    disabled?: boolean;
-  }>(),
-  { disabled: false }
-);
-const emit = defineEmits<{
-  (e: 'change', types: BaseItemKind | undefined): void;
+const { type } = defineProps<{
+  type: BaseItemDto['CollectionType'];
 }>();
+
+const innerModel = ref<BaseItemKind[]>([]);
+const model = defineModel<BaseItemKind | undefined>({ required: true });
 
 const { t } = useI18n();
 
-const model = ref<BaseItemKind[]>([]);
-
 const items = computed<{ title: string; value: BaseItemKind }[]>(() => {
-  switch (props.type) {
+  switch (type) {
     case 'movies': {
       return [
         { title: t('movies'), value: 'Movie' },

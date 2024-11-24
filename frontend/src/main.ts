@@ -3,73 +3,53 @@
  * for TypeScript compiler (check tsconfig.json)
  * https://caniuse.com/mdn-javascript_operators_await_top_level
  */
-
 import { createApp } from 'vue';
+import { routes } from 'vue-router/auto-routes';
+import { getFontFaces } from '@/utils/data-manipulation';
 import Root from '@/App.vue';
-/* eslint-disable no-restricted-imports */
-import { createRemote, i18n, router, vuetify } from '@/plugins';
 import { hideDirective } from '@/plugins/directives';
-/* eslint-enable no-restricted-imports */
-
+import { vuePlugin as i18n } from '@/plugins/i18n';
+import { createPlugin as createRemote } from '@/plugins/remote';
+import { router } from '@/plugins/router';
+import { vuetify } from '@/plugins/vuetify';
 /**
  * - GLOBAL STYLES -
  */
-import '@/assets/styles/global.scss';
-import '@fontsource/roboto';
+import 'uno.css';
+import 'virtual:unocss-devtools';
+import '@/assets/styles/index.css';
 
 /**
  * - VUE PLUGINS, STORE AND DIRECTIVE -
  * The order of statements IS IMPORTANT
  */
-
-const app = createApp(Root);
 const remote = createRemote();
+const app = createApp(Root);
 
+/**
+ * We add routes at this point instead of in the router plugin to avoid circular references
+ * in components. At this stage, we're sure plugins are instantiated.
+ */
+for (const route of routes) {
+  router.addRoute(route);
+}
+
+app.use(remote);
 app.use(i18n);
 app.use(router);
-app.use(remote);
 app.use(vuetify);
 app.directive('hide', hideDirective);
 
 /**
- * This ensures the transition plays: https://router.vuejs.org/guide/migration/#all-navigations-are-now-always-asynchronous
- * Also ensures Suspense component's content has loaded on first navigation (refer to RouterViewTransition component)
+ * Ensure everything is fully loaded before mounting the app
  */
-await router.isReady();
+await Promise.all([
+  router.isReady(),
+  ...getFontFaces().map(font => font.load())
+]);
+await document.fonts.ready;
 
 /**
- * - DOM POPULATION -
- *
- * Without window.setTimeout and window.requestAnimationFrame, the
- * splash screen gets frozen an small (but noticeable) amount of time.
+ * MOUNTING POINT
  */
-const appDOM = document.querySelector('#app');
-const splashDOM = document.querySelector('.splashBackground');
-
-if (!appDOM || !splashDOM) {
-  throw new Error('could not locate app div or splash div in DOM');
-}
-
-/**
- * Once we reach this point, the bundle and the app will be completely loaded and mounted,
- * so we add a loadFinished class (defined in index.html) that fires the defined transition
- * in the HTML markup to give a nice effect.
- */
-window.setTimeout(() => {
-  window.requestAnimationFrame(() => {
-    splashDOM.addEventListener(
-      'transitionend',
-      () => {
-        window.setTimeout(() => {
-          window.requestAnimationFrame(() => {
-            splashDOM.remove();
-          });
-        });
-      },
-      { once: true }
-    );
-
-    app.mount(appDOM);
-    splashDOM.classList.add('loadFinished');
-  });
-});
+app.mount(document.body);

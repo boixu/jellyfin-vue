@@ -1,6 +1,6 @@
 <template>
-  <v-fab-transition>
-    <v-btn
+  <JTransition name="rotated-zoom">
+    <VBtn
       v-show="y > 1"
       class="ma-4"
       color="primary"
@@ -9,11 +9,11 @@
       position="fixed"
       variant="elevated"
       @click="scrollToTop">
-      <v-icon>
-        <i-mdi-chevron-up />
-      </v-icon>
-    </v-btn>
-  </v-fab-transition>
+      <VIcon>
+        <IMdiChevronUp />
+      </VIcon>
+    </VBtn>
+  </JTransition>
 </template>
 
 <script setup lang="ts">

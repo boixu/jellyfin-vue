@@ -1,9 +1,7 @@
-import { createVuetify, ThemeDefinition } from 'vuetify';
-import { createVueI18nAdapter } from 'vuetify/locale/adapters/vue-i18n';
-import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
+import * as vuetifyLocales from 'virtual:locales/vuetify';
+import { createVuetify, type ThemeDefinition } from 'vuetify';
 import { md3 } from 'vuetify/blueprints';
-import { useI18n } from 'vue-i18n';
-import { i18n } from '.';
+import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
 import 'vuetify/styles';
 
 const dark: ThemeDefinition = {
@@ -48,7 +46,7 @@ const light: ThemeDefinition = {
  * If we don't define custom theme, Vuetify is going to take the
  * client's preferred color schema.
  */
-const vuetify = createVuetify({
+export const vuetify = createVuetify({
   blueprint: md3,
   defaults: {
     VSelect: {
@@ -58,8 +56,14 @@ const vuetify = createVuetify({
       variant: 'outlined',
       color: 'primary'
     },
+    VCheckbox: {
+      color: 'primary'
+    },
+    VProgressLinear: {
+      color: 'primary'
+    },
     VBtn: {
-      color: '',
+      color: undefined,
       variant: 'text'
     },
     VTooltip: {
@@ -73,7 +77,8 @@ const vuetify = createVuetify({
     }
   },
   locale: {
-    adapter: createVueI18nAdapter({ i18n, useI18n })
+    fallback: 'en',
+    messages: vuetifyLocales
   },
   theme: {
     themes: {
@@ -89,5 +94,3 @@ const vuetify = createVuetify({
     }
   }
 });
-
-export default vuetify;

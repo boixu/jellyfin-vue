@@ -1,8 +1,5 @@
-import { Api, Jellyfin } from '@jellyfin/sdk';
-import { RemovableRef, useStorage } from '@vueuse/core';
+import { type Api, Jellyfin } from '@jellyfin/sdk';
 import { v4 } from 'uuid';
-import { DeviceState } from './types';
-import { version } from '@/../package.json';
 import {
   isAndroid,
   isApple,
@@ -14,19 +11,25 @@ import {
   isTizen,
   isWebOS
 } from '@/utils/browser-detection';
-import { mergeExcludingUnknown } from '@/utils/data-manipulation';
+import { version } from '@/../package.json';
 
-const state: RemovableRef<DeviceState> = useStorage(
-  'deviceProfile',
-  {
-    deviceId: v4()
-  },
-  localStorage,
-  {
-    mergeDefaults: (storageValue, defaults) =>
-      mergeExcludingUnknown(storageValue, defaults)
+/**
+ * Returns the device ID, creating it in case it does not exist
+ */
+function ensureDeviceId(): string {
+  const storageKey = 'deviceId';
+  const val = window.localStorage.getItem(storageKey);
+
+  if (!val) {
+    const id = v4();
+
+    window.localStorage.setItem(storageKey, id);
+
+    return id;
   }
-);
+
+  return val;
+}
 
 const SDK = new Jellyfin({
   clientInfo: {
@@ -35,20 +38,16 @@ const SDK = new Jellyfin({
   },
   deviceInfo: {
     name: getDeviceName(),
-    id: state.value.deviceId
+    id: ensureDeviceId()
   }
 });
 
 /**
- * Gets the device's name
- *
- * @returns Device name
+ * Gets the device's name based on the browser's user agent.
  */
 function getDeviceName(): string {
   let deviceName = 'Unknown';
 
-  // TODO: Replace with pattern matching once TC39 adopts the proposal
-  // See: https://github.com/tc39/proposal-pattern-matching
   if (isChrome()) {
     deviceName = 'Chrome';
   } else if (isEdge() && !isChromiumBased()) {

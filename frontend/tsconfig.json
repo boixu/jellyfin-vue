@@ -1,35 +1,23 @@
 {
+  "extends": "@jellyfin-vue/configs/typescript/base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "Node",
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "allowJs": true,
-    "sourceMap": true,
-    "strict": true,
-    "noEmit": true,
-    "noImplicitThis": true,
-    "noImplicitAny": true,
-    "experimentalDecorators": true,
-    "removeComments": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
     "types": [
       "axios",
       "@intlify/unplugin-vue-i18n/messages",
       "unplugin-icons/types/vue",
-      "vite-plugin-vue-layouts/client",
+      "unplugin-vue-router/client",
       "vite/client",
       "vuetify",
       "vue"
-    ]
+    ],
+    "baseUrl": "."
   },
-  "vueCompilerOptions": {
-    "strictTemplates": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "./**/*.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "**/**/*.json",
+    "types/**/*.d.ts",
+    "*.config.*"
+  ]
 }

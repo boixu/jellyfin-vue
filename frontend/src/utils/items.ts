@@ -2,40 +2,51 @@
  * Item and playback helpers
  */
 import {
-  BaseItemDto,
   BaseItemKind,
-  BaseItemPerson,
-  MediaStream
+  ItemFields,
+  ItemSortBy,
+  type BaseItemDto,
+  type BaseItemPerson,
+  type MediaStream
 } from '@jellyfin/sdk/lib/generated-client';
-import { useRouter } from 'vue-router';
-import type { RouteNamedMap } from 'vue-router/auto/routes';
+import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
+import { getTvShowsApi } from '@jellyfin/sdk/lib/utils/api/tv-shows-api';
+import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
+import { getUserViewsApi } from '@jellyfin/sdk/lib/utils/api/user-views-api';
+import IMdiAccount from 'virtual:icons/mdi/account';
+import IMdiAlbum from 'virtual:icons/mdi/album';
+import IMdiBookMusic from 'virtual:icons/mdi/book-music';
+import IMdiBookOpenPageVariant from 'virtual:icons/mdi/book-open-page-variant';
+import IMdiFilmstrip from 'virtual:icons/mdi/filmstrip';
+import IMdiFolder from 'virtual:icons/mdi/folder';
+import IMdiFolderMultiple from 'virtual:icons/mdi/folder-multiple';
+import IMdiImage from 'virtual:icons/mdi/image';
+import IMdiImageMultiple from 'virtual:icons/mdi/image-multiple';
 import IMdiMovie from 'virtual:icons/mdi/movie';
 import IMdiMusic from 'virtual:icons/mdi/music';
-import IMdiImage from 'virtual:icons/mdi/image';
-import IMdiYoutubeTV from 'virtual:icons/mdi/youtube-tv';
-import IMdiTelevisionClassic from 'virtual:icons/mdi/television-classic';
-import IMdiImageMultiple from 'virtual:icons/mdi/image-multiple';
 import IMdiMusicBox from 'virtual:icons/mdi/music-box';
-import IMdiBookOpenPageVariant from 'virtual:icons/mdi/book-open-page-variant';
-import IMdiYoutube from 'virtual:icons/mdi/youtube';
-import IMdiPlaylistPlay from 'virtual:icons/mdi/playlist-play';
-import IMdiFolder from 'virtual:icons/mdi/folder';
-import IMdiAccount from 'virtual:icons/mdi/account';
 import IMdiMusicNote from 'virtual:icons/mdi/music-note';
-import IMdiBookMusic from 'virtual:icons/mdi/book-music';
-import IMdiFolderMultiple from 'virtual:icons/mdi/folder-multiple';
-import IMdiFilmstrip from 'virtual:icons/mdi/filmstrip';
-import IMdiAlbum from 'virtual:icons/mdi/album';
+import IMdiPlaylistPlay from 'virtual:icons/mdi/playlist-play';
+import IMdiTelevisionClassic from 'virtual:icons/mdi/television-classic';
+import IMdiYoutube from 'virtual:icons/mdi/youtube';
+import IMdiYoutubeTV from 'virtual:icons/mdi/youtube-tv';
+import type { ComputedRef } from 'vue';
+import type { RouteNamedMap } from 'vue-router/auto-routes';
+import { ticksToMs } from './time';
+import { isNil } from '@/utils/validation';
+import { router } from '@/plugins/router';
+import { remote } from '@/plugins/remote';
+import { useBaseItem } from '@/composables/apis';
 
 /**
  * A list of valid collections that should be treated as folders.
  */
-export const validLibraryTypes: string[] = [
-  'CollectionFolder',
-  'Folder',
-  'UserView',
-  'Playlist',
-  'PhotoAlbum'
+export const validLibraryTypes: BaseItemKind[] = [
+  BaseItemKind.CollectionFolder,
+  BaseItemKind.Folder,
+  BaseItemKind.UserView,
+  BaseItemKind.Playlist,
+  BaseItemKind.PhotoAlbum
 ];
 
 export const validPersonTypes = [
@@ -57,6 +68,12 @@ export enum CardShapes {
 }
 
 /**
+ * This sortOrder is commonly used across many requests. Define it here so it can be
+ * used in multiple places without repeating the same code.
+ */
+export const defaultSortOrder = [ItemSortBy.PremiereDate, ItemSortBy.ProductionYear, ItemSortBy.SortName];
+
+/**
  * Determines if the item is a person
  *
  * @param item - The item to be checked.
@@ -66,25 +83,21 @@ export function isPerson(
   item: BaseItemDto | BaseItemPerson
 ): item is BaseItemPerson {
   return !!(
-    'Role' in item ||
-    (item.Type && validPersonTypes.includes(item.Type))
+    'Role' in item
+    || (item.Type && validPersonTypes.includes(item.Type))
   );
 }
 
 /**
- * Checks if the string is a valid MD5 hash.
- *
- * @param input - The string to check for validity
- * @returns - A boolean representing the validity of the input string
+ * Checks if the item is a library
  */
-export function isValidMD5(input: string): boolean {
-  return /[\dA-Fa-f]{32}/.test(input);
+export function isLibrary(item: BaseItemDto): boolean {
+  return item.Type ? validLibraryTypes.includes(item.Type) : false;
 }
 
 /**
  * Get the Material Design Icon name associated with a type of library
  *
- * @param libraryType - Type of the library
  * @returns Name of the Material Design Icon associated with the type
  */
 export function getLibraryIcon(
@@ -130,7 +143,6 @@ export function getLibraryIcon(
 /**
  * Get the card shape associated with a collection type
  *
- * @param collectionType - Type of the collection
  * @returns CSS class to use as the shape of the card
  */
 export function getShapeFromCollectionType(
@@ -155,7 +167,6 @@ export function getShapeFromCollectionType(
 /**
  * Gets the card shape associated with a collection type
  *
- * @param itemType - type of item
  * @returns CSS class to use as the shape of the card
  */
 export function getShapeFromItemType(
@@ -166,25 +177,48 @@ export function getShapeFromItemType(
   }
 
   switch (itemType) {
-    case 'Audio':
-    case 'Folder':
-    case 'MusicAlbum':
-    case 'MusicArtist':
-    case 'MusicGenre':
-    case 'PhotoAlbum':
-    case 'Playlist':
-    case 'Video': {
+    case BaseItemKind.Audio:
+    case BaseItemKind.Folder:
+    case BaseItemKind.MusicAlbum:
+    case BaseItemKind.MusicArtist:
+    case BaseItemKind.MusicGenre:
+    case BaseItemKind.PhotoAlbum:
+    case BaseItemKind.Playlist:
+    case BaseItemKind.Video: {
       return CardShapes.Square;
     }
-    case 'Episode':
-    case 'MusicVideo':
-    case 'Studio': {
+    case BaseItemKind.Episode:
+    case BaseItemKind.MusicVideo:
+    case BaseItemKind.CollectionFolder:
+    case BaseItemKind.Studio: {
       return CardShapes.Thumb;
     }
     default: {
       return CardShapes.Portrait;
     }
   }
+}
+
+/**
+ * Determine if an item can be identified.
+ *
+ * @param item - The item to be checked.
+ * @returns Whether the item can be identified or not.
+ */
+export function canIdentify(item: BaseItemDto): boolean {
+  const valid = [
+    'Book',
+    'BoxSet',
+    'Movie',
+    'MusicAlbum',
+    'MusicArtist',
+    'MusicVideo',
+    'Person',
+    'Series',
+    'Trailer'
+  ];
+
+  return valid.includes(item.Type ?? '');
 }
 
 /**
@@ -214,19 +248,16 @@ export function canPlay(item: BaseItemDto | undefined): boolean {
       'Series',
       'Trailer',
       'Video'
-    ].includes(item.Type || '') ||
-    ['Video', 'Audio'].includes(item.MediaType || '') ||
-    item.IsFolder
+    ].includes(item.Type ?? '')
+    || ['Video', 'Audio'].includes(item.MediaType ?? '')
+    || item.IsFolder
   );
 }
 /**
  * Check if an item can be resumed
  */
 export function canResume(item: BaseItemDto): boolean {
-  return item?.UserData?.PlaybackPositionTicks &&
-    item.UserData.PlaybackPositionTicks > 0
-    ? true
-    : false;
+  return Boolean(item.UserData?.PlaybackPositionTicks && item.UserData.PlaybackPositionTicks > 0);
 }
 /**
  * Determine if an item can be mark as played
@@ -245,6 +276,41 @@ export function canMarkWatched(item: BaseItemDto): boolean {
 
   return !!(item.MediaType === 'Video' && item.Type !== 'TvChannel');
 }
+
+/**
+ * Determine if an item can be instant mixed.
+ *
+ * @param item - The item to be checked.
+ * @returns Whether the item can be instant mixed or not.
+ */
+export function canInstantMix(item: BaseItemDto): boolean {
+  return ['Audio', 'MusicAlbum', 'MusicArtist', 'MusicGenre'].includes(
+    item.Type ?? ''
+  );
+}
+
+/**
+ * Check if an item's metadata can be refreshed.
+ */
+export function canRefreshMetadata(item: BaseItemDto): boolean {
+  const invalidRefreshType = ['Timer', 'SeriesTimer', 'Program', 'TvChannel'];
+
+  if (item.CollectionType === 'livetv') {
+    return false;
+  }
+
+  const incompleteRecording
+    = item.Type === BaseItemKind.Recording && item.Status !== 'Completed';
+  const IsAdministrator
+    = remote.auth.currentUser?.Policy?.IsAdministrator ?? false;
+
+  return (
+    IsAdministrator
+    && !incompleteRecording
+    && !invalidRefreshType.includes(item.Type ?? '')
+  );
+}
+
 /**
  * Generate a link to the item's details page route
  *
@@ -256,45 +322,37 @@ export function getItemDetailsLink(
   item: BaseItemDto | BaseItemPerson,
   overrideType?: BaseItemKind
 ): string {
-  const router = useRouter();
+  const itemId = String(item.Id);
   let routeName: keyof RouteNamedMap;
-  let routeParameters: Record<never, never>;
 
-  if (item.Type && validLibraryTypes.includes(item.Type)) {
-    routeName = 'library-itemId';
-    routeParameters = { itemId: item.Id };
+  if (!isPerson(item) && isLibrary(item)) {
+    routeName = '/library/[itemId]';
   } else {
-    const type = overrideType || item.Type;
+    const type = overrideType ?? item.Type;
 
     switch (type) {
       case 'Series': {
-        routeName = 'series-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/series/[itemId]';
         break;
       }
       case 'Person': {
-        routeName = 'person-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/person/[itemId]';
         break;
       }
       case 'MusicArtist': {
-        routeName = 'artist-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/artist/[itemId]';
         break;
       }
       case 'MusicAlbum': {
-        routeName = 'musicalbum-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/musicalbum/[itemId]';
         break;
       }
       case 'Genre': {
-        routeName = 'genre-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/genre/[itemId]';
         break;
       }
       default: {
-        routeName = 'item-itemId';
-        routeParameters = { itemId: item.Id };
+        routeName = '/item/[itemId]';
         break;
       }
     }
@@ -302,7 +360,7 @@ export function getItemDetailsLink(
 
   return router.resolve({
     name: routeName,
-    params: routeParameters
+    params: { itemId }
   }).path;
 }
 
@@ -373,6 +431,14 @@ export function getItemIcon(
 
   return itemIcon;
 }
+
+/**
+ * Get the runtime of an item in milliseconds
+ */
+export function getItemRuntime(item: BaseItemDto): number {
+  return ticksToMs(item.RunTimeTicks);
+}
+
 /**
  * Filters the media streams based on the wanted type
  *
@@ -384,5 +450,180 @@ export function getMediaStreams(
   mediaStreams: MediaStream[],
   streamType: string
 ): MediaStream[] {
-  return mediaStreams.filter((mediaStream) => mediaStream.Type === streamType);
+  return mediaStreams.filter(mediaStream => mediaStream.Type === streamType);
+}
+
+/**
+ * Get the item ID either from the item itself or from the MediaSource
+ *
+ * @param item - The item to get the ID from
+ * @param sourceIndex - The index of the MediaSource to get the ID from (optional)
+ * @returns The ID of the item or the MediaSource
+ */
+export function getItemIdFromSourceIndex(
+  item: BaseItemDto,
+  sourceIndex?: number
+): string {
+  if (sourceIndex === undefined) {
+    return item.Id ?? '';
+  }
+
+  const mediaSource = item.MediaSources?.[sourceIndex];
+
+  return (mediaSource ? mediaSource.Id : item.Id) ?? '';
+}
+
+/**
+ * Create an item download object that contains the URL and filename.
+ *
+ * @returns - A download object.
+ */
+export function getItemDownloadUrl(itemId: string): string | undefined {
+  const serverAddress = remote.sdk.api?.basePath;
+  const userToken = remote.sdk.api?.accessToken;
+
+  if (!serverAddress || !userToken) {
+    return undefined;
+  }
+
+  return `${serverAddress}/Items/${itemId}/Download?api_key=${userToken}`;
+}
+
+/**
+ * Get a map of an episode name and its download url, given a season.
+ *
+ * @returns - A map: [EpisodeName, DownloadUrl].
+ */
+export async function getItemSeasonDownloadMap(
+  seasonId: string
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+
+  const episodes
+    = (
+      await remote.sdk.newUserApi(getItemsApi).getItems({
+        userId: remote.auth.currentUserId,
+        parentId: seasonId,
+        fields: [ItemFields.Overview, ItemFields.CanDownload, ItemFields.Path]
+      })
+    ).data.Items ?? [];
+
+  for (const episode of episodes) {
+    if (episode.Id && !isNil(episode.Name)) {
+      const url = getItemDownloadUrl(episode.Id);
+
+      if (url) {
+        result.set(episode.Name, url);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get a map of an episode name and its download url, given a series.
+ *
+ * @returns - A map: [EpisodeName, DownloadUrl].
+ */
+export async function getItemSeriesDownloadMap(
+  seriesId: string
+): Promise<Map<string, string>> {
+  let result = new Map<string, string>();
+
+  const seasons
+    = (
+      await remote.sdk.newUserApi(getTvShowsApi).getSeasons({
+        userId: remote.auth.currentUserId,
+        seriesId: seriesId
+      })
+    ).data.Items ?? [];
+
+  for (const season of seasons) {
+    if (season.Id) {
+      const map = await getItemSeasonDownloadMap(season.Id);
+
+      result = new Map([...result, ...map]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Format a number of bytes into a human readable string
+ *
+ * @param size - The number of bytes to format
+ * @returns - A human readable string
+ */
+export function formatFileSize(size: number): string {
+  if (size === 0) {
+    return '0 B';
+  }
+
+  const i = Math.floor(Math.log(size) / Math.log(1024));
+
+  return `${(size / Math.pow(1024, i)).toFixed(2)} ${
+    ['B', 'kiB', 'MiB', 'GiB', 'TiB', 'PiB'][i]
+  }`;
+}
+
+/**
+ * Format an item's bitrate into an standard human-readable format
+ * Eg: 18112.27 kbps
+ */
+export function formatBitRate(bitrate: number): string {
+  return `${(bitrate / 1000).toFixed(2)} kbps`;
+}
+
+/**
+ * Gets all the items that need to be resolved to populate the interface
+ */
+interface IndexPageQueries {
+  views: ComputedRef<BaseItemDto[]>;
+  resumeVideo: ComputedRef<BaseItemDto[]>;
+  carousel: ComputedRef<BaseItemDto[]>;
+  nextUp: ComputedRef<BaseItemDto[]>;
+  latestPerLibrary: Map<BaseItemDto['Id'], ComputedRef<BaseItemDto[]>>;
+}
+
+/**
+ * Fetches all the items that are needed to populate the default layout
+ * (like libraries, which are necessary for the drawer).
+ *
+ * This is here so this function can be invoked from the login page as well,
+ * so when it resolves all the content is already loaded without further delay.
+ */
+export async function fetchIndexPage(): Promise<IndexPageQueries> {
+  const latestPerLibrary = new Map<BaseItemDto['Id'], ComputedRef<BaseItemDto[]>>();
+  const latestPromises: Promise<void>[] = [];
+  const { data: views } = await useBaseItem(getUserViewsApi, 'getUserViews')();
+
+  for (const view of views.value) {
+    latestPromises.push((async () => {
+      const { data } = await useBaseItem(getUserLibraryApi, 'getLatestMedia')(() => ({
+        parentId: view.Id
+      }));
+
+      latestPerLibrary.set(view.Id, data);
+    })());
+  }
+
+  const itemPromises = [
+    useBaseItem(getItemsApi, 'getResumeItems')(() => ({
+      mediaTypes: ['Video']
+    })),
+    useBaseItem(getUserLibraryApi, 'getLatestMedia')(),
+    useBaseItem(getTvShowsApi, 'getNextUp')()
+  ];
+
+  const results = (await Promise.all([Promise.all(itemPromises), Promise.all(latestPromises)]))[0];
+
+  return {
+    views,
+    resumeVideo: results[0].data,
+    carousel: results[1].data,
+    nextUp: results[2].data,
+    latestPerLibrary
+  };
 }

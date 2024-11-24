@@ -3,13 +3,15 @@
  *
  */
 import {
-  BaseItemDto,
+  type BaseItemDto,
   BaseItemKind,
-  BaseItemPerson,
+  type BaseItemPerson,
   ImageType
 } from '@jellyfin/sdk/lib/generated-client';
-import { useRemote } from '@/composables';
-import { getShapeFromItemType, isPerson, CardShapes } from '@/utils/items';
+import { getImageApi } from '@jellyfin/sdk/lib/utils/api/image-api';
+import type { ImageUrlsApi } from '@jellyfin/sdk/lib/utils/api/image-urls-api';
+import { remote } from '@/plugins/remote';
+import { CardShapes, getShapeFromItemType, isPerson } from '@/utils/items';
 
 export interface ImageUrlInfo {
   url?: string;
@@ -19,6 +21,13 @@ export interface ImageUrlInfo {
 const excludedBlurhashTypes = Object.freeze(
   new Set<ImageType>([ImageType.Logo])
 );
+
+/**
+ * Gets the image URL given an item id and the image type requested
+ */
+export function getItemImageUrl(...args: Parameters<ImageUrlsApi['getItemImageUrlById']>) {
+  return remote.sdk.newUserApi(getImageApi).getItemImageUrlById(...args);
+}
 
 /**
  * Gets the tag of the image of an specific item and type.
@@ -42,7 +51,7 @@ export function getImageTag(
   }
 
   if (item.ImageTags?.[type]) {
-    return item.ImageTags?.[type];
+    return item.ImageTags[type];
   } else if (type === ImageType.Backdrop && item.BackdropImageTags?.[index]) {
     return item.BackdropImageTags[index];
   }
@@ -51,10 +60,10 @@ export function getImageTag(
     switch (type) {
       case ImageType.Primary: {
         return (
-          item.AlbumPrimaryImageTag ||
-          item.ChannelPrimaryImageTag ||
-          item.ParentPrimaryImageTag ||
-          undefined
+          item.AlbumPrimaryImageTag
+          ?? item.ChannelPrimaryImageTag
+          ?? item.ParentPrimaryImageTag
+          ?? undefined
         );
       }
       case ImageType.Art: {
@@ -118,30 +127,15 @@ export function getBlurhash(
   index = 0,
   checkParent = true
 ): string | undefined {
-  if (item) {
-    const tag = getImageTag(item, type, index, checkParent);
+  const tag = getImageTag(item, type, index, checkParent);
 
-    if (
-      tag &&
-      !excludedBlurhashTypes.has(type) &&
-      item.ImageBlurHashes?.[type]?.[tag]
-    ) {
-      return item.ImageBlurHashes?.[type]?.[tag];
-    }
+  if (
+    tag
+    && !excludedBlurhashTypes.has(type)
+    && item.ImageBlurHashes?.[type]?.[tag]
+  ) {
+    return item.ImageBlurHashes[type][tag];
   }
-}
-
-/**
- * Returns the aspect ratio that should be use
- */
-export function getContainerAspectRatioForImageType(
-  imageType?: ImageType
-): number {
-  if (imageType === ImageType.Backdrop) {
-    return 1.777_777_778;
-  }
-
-  return 0.666_666_667;
 }
 
 /**
@@ -225,7 +219,6 @@ export function getImageInfo(
   let imgTag;
   let itemId: string | null | undefined = item.Id;
   let height;
-  const remote = useRemote();
 
   if (tag && preferBackdrop) {
     imgType = ImageType.Backdrop;
@@ -245,17 +238,16 @@ export function getImageInfo(
   } else if (isPerson(item)) {
     imgType = ImageType.Primary;
     imgTag = item.PrimaryImageTag;
-  } else if (preferThumb && item.ImageTags && item.ImageTags.Thumb) {
+  } else if (preferThumb && item.ImageTags?.Thumb) {
     imgType = ImageType.Thumb;
     imgTag = item.ImageTags.Thumb;
   } else if (
-    (preferBanner || shape === CardShapes.Banner) &&
-    item.ImageTags &&
-    item.ImageTags.Banner
+    (preferBanner || shape === CardShapes.Banner)
+    && item.ImageTags?.Banner
   ) {
     imgType = ImageType.Banner;
     imgTag = item.ImageTags.Banner;
-  } else if (preferLogo && item.ImageTags && item.ImageTags.Logo) {
+  } else if (preferLogo && item.ImageTags?.Logo) {
     imgType = ImageType.Logo;
     imgTag = item.ImageTags.Logo;
   } else if (preferBackdrop && item.BackdropImageTags?.[0]) {
@@ -266,9 +258,9 @@ export function getImageInfo(
     imgTag = item.ParentLogoImageTag;
     itemId = item.ParentLogoItemId;
   } else if (
-    preferBackdrop &&
-    item.ParentBackdropImageTags?.[0] &&
-    item.ParentBackdropItemId
+    preferBackdrop
+    && item.ParentBackdropImageTags?.[0]
+    && item.ParentBackdropItemId
   ) {
     imgType = ImageType.Backdrop;
     imgTag = item.ParentBackdropImageTags[0];
@@ -278,40 +270,34 @@ export function getImageInfo(
     imgTag = item.SeriesThumbImageTag;
     itemId = item.SeriesId;
   } else if (
-    preferThumb &&
-    item.ParentThumbItemId &&
-    inheritThumb &&
-    item.MediaType !== 'Photo'
+    preferThumb
+    && item.ParentThumbItemId
+    && inheritThumb
+    && item.MediaType !== 'Photo'
   ) {
     imgType = ImageType.Thumb;
     imgTag = item.ParentThumbImageTag;
     itemId = item.ParentThumbItemId;
   } else if (
-    preferThumb &&
-    item.BackdropImageTags &&
-    item.BackdropImageTags.length > 0
+    preferThumb
+    && item.BackdropImageTags?.length
   ) {
     imgType = ImageType.Backdrop;
     imgTag = item.BackdropImageTags[0];
   } else if (
-    preferThumb &&
-    item.ParentBackdropImageTags &&
-    item.ParentBackdropImageTags.length > 0 &&
-    inheritThumb &&
-    item.Type === BaseItemKind.Episode
+    preferThumb
+    && item.ParentBackdropImageTags?.length
+    && inheritThumb
+    && item.Type === BaseItemKind.Episode
   ) {
     imgType = ImageType.Backdrop;
     imgTag = item.ParentBackdropImageTags[0];
     itemId = item.ParentBackdropItemId;
-  } else if (
-    item.ImageTags &&
-    item.ImageTags.Primary &&
-    (item.Type !== BaseItemKind.Episode || item.ChildCount !== 0)
-  ) {
+  } else if (item.ImageTags?.Primary && (item.Type !== BaseItemKind.Episode || item.ChildCount !== 0)) {
     imgType = ImageType.Primary;
     imgTag = item.ImageTags.Primary;
-    height =
-      width && item.PrimaryImageAspectRatio
+    height
+      = width && item.PrimaryImageAspectRatio
         ? Math.round(width / item.PrimaryImageAspectRatio)
         : undefined;
   } else if (item.SeriesPrimaryImageTag) {
@@ -326,35 +312,33 @@ export function getImageInfo(
     imgType = ImageType.Primary;
     imgTag = item.AlbumPrimaryImageTag;
     itemId = item.AlbumId;
-    height =
-      width && item.PrimaryImageAspectRatio
+    height
+      = width && item.PrimaryImageAspectRatio
         ? Math.round(width / item.PrimaryImageAspectRatio)
         : undefined;
   } else if (
-    item.Type === BaseItemKind.Season &&
-    item.ImageTags &&
-    item.ImageTags.Thumb
+    item.Type === BaseItemKind.Season
+    && item.ImageTags?.Thumb
   ) {
     imgType = ImageType.Thumb;
     imgTag = item.ImageTags.Thumb;
-  } else if (item.BackdropImageTags && item.BackdropImageTags.length > 0) {
+  } else if (item.BackdropImageTags?.length) {
     imgType = ImageType.Backdrop;
     imgTag = item.BackdropImageTags[0];
-  } else if (item.ImageTags && item.ImageTags.Thumb) {
+  } else if (item.ImageTags?.Thumb) {
     imgType = ImageType.Thumb;
     imgTag = item.ImageTags.Thumb;
-  } else if (item.SeriesThumbImageTag && inheritThumb !== false) {
+  } else if (item.SeriesThumbImageTag && inheritThumb) {
     imgType = ImageType.Thumb;
     imgTag = item.SeriesThumbImageTag;
     itemId = item.SeriesId;
-  } else if (item.ParentThumbItemId && inheritThumb !== false) {
+  } else if (item.ParentThumbItemId && inheritThumb) {
     imgType = ImageType.Thumb;
     imgTag = item.ParentThumbImageTag;
     itemId = item.ParentThumbItemId;
   } else if (
-    item.ParentBackdropImageTags &&
-    item.ParentBackdropImageTags.length > 0 &&
-    inheritThumb !== false
+    item.ParentBackdropImageTags?.length
+    && inheritThumb
   ) {
     imgType = ImageType.Backdrop;
     imgTag = item.ParentBackdropImageTags[0];
@@ -372,7 +356,7 @@ export function getImageInfo(
     };
   }
 
-  const url_string = remote.sdk.api?.getItemImageUrl(itemId, imgType);
+  const url_string = getItemImageUrl(itemId, imgType);
 
   if (imgTag && imgType && url_string) {
     url = new URL(url_string);
@@ -435,7 +419,7 @@ export function getLogo(
   if (tag) {
     imgType = ImageType.Logo;
     imgTag = tag;
-  } else if (item.ImageTags && item.ImageTags.Logo) {
+  } else if (item.ImageTags?.Logo) {
     imgType = ImageType.Logo;
     imgTag = item.ImageTags.Logo;
   } else if (item.ParentLogoImageTag && item.ParentLogoItemId) {
@@ -445,9 +429,7 @@ export function getLogo(
   }
 
   if (imgTag && imgType && itemId) {
-    const remote = useRemote();
-
-    url = new URL(remote.sdk.api?.getItemImageUrl(itemId, imgType) || '');
+    url = new URL(getItemImageUrl(itemId, imgType));
 
     const parameters: Record<string, string> = {
       imgTag,

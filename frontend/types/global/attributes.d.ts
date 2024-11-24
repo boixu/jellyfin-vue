@@ -1,14 +1,20 @@
-// eslint-disable-next-line import/no-extraneous-dependencies
-import '@vue/runtime-dom';
+/* eslint-disable @typescript-eslint/consistent-indexed-object-style */
 
-declare module '@vue/runtime-dom' {
-  export interface HTMLAttributes {
-    // allow any data-* attr on HTML elements
+declare module 'vue' {
+  export interface AllowedComponentProps {
     [key: `data${string}`]: string;
   }
 
   export interface ComponentCustomProps {
-    // allow any data-* attr on Vue components
+    // Allow any data-* attr on Vue components
     [key: `data${string}`]: string;
   }
 }
+declare module 'vue' {
+  export interface HTMLAttributes {
+    // Allow any data-* attr on HTML elements
+    [key: `data${string}`]: string;
+  }
+}
+
+export {};

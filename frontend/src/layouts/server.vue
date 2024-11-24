@@ -1,9 +1,16 @@
 <template>
-  <loading-indicator />
-  <v-main class="h-100">
-    <router-view-transition />
-  </v-main>
-  <v-footer app color="transparent">
-    <locale-switcher top elevated />
-  </v-footer>
+  <LoadingIndicator />
+  <VMain class="uno-h-full">
+    <slot />
+  </VMain>
+  <VFooter
+    app
+    color="transparent">
+    <LocaleSwitcher
+      elevated
+      top />
+  </VFooter>
 </template>
+
+<script setup lang="ts">
+</script>

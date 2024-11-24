@@ -1,7 +1,11 @@
 <template>
-  <v-snackbar v-model="model" :color="state.color" location="bottom left">
+  <VSnackbar
+    v-model="model"
+    :color="state.color"
+    location="bottom left"
+    eager>
     {{ state.message }}
-  </v-snackbar>
+  </VSnackbar>
 </template>
 
 <script lang="ts">
@@ -12,13 +16,14 @@ interface SnackbarState {
   color: string;
 }
 
-let state: SnackbarState = reactive({
+const state = reactive<SnackbarState>({
   message: '',
   color: ''
 });
 
 /**
- * Composable for invoking snackbar message
+ * Display a notification to the user using a snackbar message located at
+ * the bottom left of the frontend
  */
 export function useSnackbar(message: string, color: string): void {
   state.color = color;
@@ -32,7 +37,7 @@ const model = computed({
     return state.message !== '';
   },
   set(newValue) {
-    if (newValue === false) {
+    if (!newValue) {
       state.message = '';
       state.color = '';
     }
